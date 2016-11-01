@@ -4,14 +4,17 @@ import platform
 import traceback
 import wave
 from utilities import *
+from tempfile import NamedTemporaryFile
 import pyaudio
-
+import io
 from utilities import which
 
 try:
-    from pydub import AudioSegment
+    from pydub import AudioSegment, playback
+    from pydub.utils import make_chunks
 except ImportError:
     AudioSegment = None
+    playback = None
 
 try:
     import thread
@@ -23,8 +26,13 @@ class SoundPlayer:
     def __init__(self, soundfile, parent):
         self.soundfile = soundfile
         self.isplaying = False
+        self.volume = 75
+        self.mindb = 60
+        self.maxdb = 24
+        self.stepdb = (self.mindb-self.maxdb)/100.0
         self.time = 0  # current audio position in frames
         self.audio = pyaudio.PyAudio()
+        self.tempsound = None
         if AudioSegment:
             if which("ffmpeg") is not None:
                 AudioSegment.converter = which("ffmpeg")
@@ -40,10 +48,18 @@ class SoundPlayer:
 
         try:
             if AudioSegment:
-                tempsound = AudioSegment.from_file(self.soundfile, format=os.path.splitext(self.soundfile)[1][1:])
-                tempsound.export(os.path.join(get_main_dir(), "temp.wav"), format="wav")
-                #tempsound.export(os.path.dirname(os.path.realpath(__file__)) + "\\temp.wav", format="wav")
-                self.wave_reference = wave.open(os.path.join(get_main_dir(), "temp.wav"))
+                print(self.soundfile)
+                self.tempsound = AudioSegment.from_file(self.soundfile, format=os.path.splitext(self.soundfile)[1][1:])
+                f = NamedTemporaryFile("w+b", suffix=".wav", delete=False)
+                if self.volume <= 0:
+                    self.volume = 0
+                if self.volume > 100:
+                    self.volume = 100
+                self.maxdb = self.tempsound.max_dBFS*-100.0
+                print("NewVolume: " + str(self.mindb-(self.stepdb*self.volume)))
+                self.tempsound.apply_gain(-1*(self.mindb-(self.stepdb*self.volume))).export(f.name, "wav")
+                f.close()
+                self.wave_reference = wave.open(f.name, "rb")
             else:
                 self.wave_reference = wave.open(self.soundfile)
 
@@ -67,6 +83,21 @@ class SoundPlayer:
         frame = self.wave_reference.readframes(samplelen)
         width = self.wave_reference.getsampwidth()
         return audioop.rms(frame, width)
+
+    def ChangeVolume(self, newvolume):
+        if AudioSegment:
+            self.volume = newvolume
+            f = NamedTemporaryFile("w+b", suffix=".wav", delete=False)
+            if self.volume <= 0:
+                self.volume = 0
+            if self.volume > 100:
+                self.volume = 100
+            print("NewVolume: " + str(self.mindb - (self.stepdb * self.volume)))
+            self.tempsound.apply_gain(-1 * (self.mindb - (self.stepdb * self.volume))).export(f.name, "wav")
+            f.close()
+            self.wave_reference = wave.open(f.name, "rb")
+        else:
+            pass
 
     def IsPlaying(self):
         return self.isplaying
@@ -120,7 +151,10 @@ class SoundPlayer:
         self.isplaying = False
 
     def Play(self, arg):
+        print("Duration: " + str(self.Duration()))
         thread.start_new_thread(self._play, (0, self.Duration()))
 
     def PlaySegment(self, start, length, arg):
+        # Both are measured in seconds using floats
+        print("Start: " + str(start) + " Length: " + str(length))
         thread.start_new_thread(self._play, (start, length))
