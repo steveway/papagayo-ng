@@ -25,7 +25,6 @@ class SoundPlayer:
         self.isplaying = False
         self.time = 0  # current audio position in frames
         self.audio = pyaudio.PyAudio()
-        self.playlock = thread.allocate_lock()  # we only want to play one thing at a time
         if AudioSegment:
             if which("ffmpeg") is not None:
                 AudioSegment.converter = which("ffmpeg")
@@ -119,21 +118,10 @@ class SoundPlayer:
                 remaining = 0
 
         stream.close()
-        self.playlock.release()
         self.isplaying = False
 
     def Play(self, arg):
-        print("Locked: " + str(self.playlock.locked()))
-        while self.playlock.locked():
-            pass
-        self.playlock.acquire()
         thread.start_new_thread(self._play, (0, self.Duration()))
 
-
     def PlaySegment(self, start, length, arg):
-        print("Locked: " + str(self.playlock.locked()))
-        while self.playlock.locked():
-            pass
-        self.playlock.acquire()
         thread.start_new_thread(self._play, (start, length))
-
