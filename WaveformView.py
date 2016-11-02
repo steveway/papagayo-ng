@@ -75,7 +75,7 @@ class WaveformView(wx.ScrolledWindow):
         self.phraseBottom = 16
         self.wordBottom = 32
         self.phonemeTop = 128
-        self.didresize = 0
+        self.didchange = 0
 
         # Connect event handlers
         # window events
@@ -105,16 +105,22 @@ class WaveformView(wx.ScrolledWindow):
         # begin wxGlade: WaveformView.__do_layout
         self.Layout()
         # end wxGlade
+
     def OnIdle(self, event):
-        if self.didresize:
+        if self.didchange:
             if BUFFERED:
                 # Initialize the buffer bitmap.  No real DC is needed at this point.
                 if self.maxWidth > 0 and self.maxHeight > 0:
-                    self.buffer = wx.EmptyBitmap(self.maxWidth, self.maxHeight)
+                    if not self.isWxPhoenix:
+                        self.buffer = wx.EmptyBitmap(self.maxWidth, self.maxHeight)
+                    else:
+                        self.buffer = wx.Bitmap(self.maxWidth, self.maxHeight)
+                    self.UpdateDrawing()
                 else:
                     self.buffer = None
-                self.UpdateDrawing()
-            self.didresize = 0
+                    self.UpdateDrawing(False)
+            self.didchange = 0
+
     def OnPaint(self, event):
         if BUFFERED:
             # Create a buffered paint DC.  It will create the real
@@ -122,7 +128,7 @@ class WaveformView(wx.ScrolledWindow):
             # deleted.  Since we don't need to draw anything else
             # here that's all there is to it.
             if self.buffer is not None:
-                if 1:
+                if True:
                     dc = wx.BufferedPaintDC(self, self.buffer, wx.BUFFER_VIRTUAL_AREA)
                 else:
                     dc = wx.BufferedPaintDC(self, self.buffer)
@@ -135,11 +141,10 @@ class WaveformView(wx.ScrolledWindow):
             # paint the whole window, potentially very time consuming.
             self.Draw(dc)
 
-
     def OnSize(self, event=None):
         self.maxHeight = self.GetClientSize().height
         self.SetVirtualSize((self.maxWidth, self.maxHeight))
-        self.didresize = 1
+        self.didchange = 1
 
     def OnMouseDown(self, event):
         self.isDragging = False
@@ -297,7 +302,8 @@ class WaveformView(wx.ScrolledWindow):
             self.selectedPhoneme = None
             if (self.doc is not None) and (self.doc.sound is not None):
                 while self.doc.sound.IsPlaying():
-                    pass  # don't redraw until the playback for the last frame is done   
+                    pass  # don't redraw until the playback for the last frame is done
+                self.didchange = 1  # we want to redraw after playback is done
 
     def OnMouseWheel(self, event):
         if self.doc is not None:
@@ -311,8 +317,11 @@ class WaveformView(wx.ScrolledWindow):
                 self.Scroll(x - (event.GetWheelRotation() / 10), 0)
 
     def OnMouseMove(self, event):
-        if self.isDragging:
-            x, y = event.GetPositionTuple()
+        if self.isDragging:# and not self.doc.sound.IsPlaying():
+            if not self.isWxPhoenix:
+                x, y = event.GetPositionTuple()
+            else:
+                x, y = event.GetPosition()
             x, y = self.CalcUnscrolledPosition(x, y)
             frame = x / self.frameWidth
             if frame == self.dragStartFrame:
@@ -437,7 +446,10 @@ class WaveformView(wx.ScrolledWindow):
         if BUFFERED:
             # Initialize the buffer bitmap.  No real DC is needed at this point.
             if self.maxWidth > 0 and self.maxHeight > 0:
-                self.buffer = wx.EmptyBitmap(self.maxWidth, self.maxHeight)
+                if not self.isWxPhoenix:
+                    self.buffer = wx.EmptyBitmap(self.maxWidth, self.maxHeight)
+                else:
+                    self.buffer = wx.Bitmap(self.maxWidth, self.maxHeight)
             else:
                 self.buffer = None
             self.UpdateDrawing()
@@ -723,10 +735,8 @@ class WaveformView(wx.ScrolledWindow):
                 font.SetWeight(wx.BOLD)
                 dc.SetFont(font)
                 dc.DrawLabel(str(curFrame + 1), wx.Rect(x - 50, cs.height * 0.4, 100, 125), wx.ALIGN_CENTER)
-        try:
+        if not self.isWxPhoenix:
             dc.EndDrawing()
-        except AttributeError:
-            pass
 
     def OnZoomIn(self, event):
         if (self.doc is not None) and (self.samplesPerFrame < 16):

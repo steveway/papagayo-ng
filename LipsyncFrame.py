@@ -550,7 +550,8 @@ class LipsyncFrame(wx.Frame):
         self.Close(True)
 
     def OnHelp(self, event=None):
-        webbrowser.open("file://%s" % os.path.join(get_main_dir(), "help/index.html"))  # TODO: Fix path
+        webbrowser.open(r"https://github.com/morevnaproject/papagayo-ng")
+        #webbrowser.open("file://%s" % os.path.join(get_main_dir(), "help/index.html"))  # TODO: Fix path
 
     def OnAbout(self, event=None):
         dlg = AboutBox(self)
