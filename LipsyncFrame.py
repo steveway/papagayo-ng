@@ -345,7 +345,7 @@ class LipsyncFrame(wx.Frame):
         sizer_9_copy.Add(self.exportBut, 0, 0, 0)
         sizer_9_copy.Add(self.voiceimageBut, 0, 0, 0)
         sizer_7.Add(sizer_9_copy, 0, wx.ALL | wx.EXPAND, 4)
-        sizer_3.Add(sizer_7, 0, wx.ALL | wx.EXPAND, 4)
+        sizer_3.Add(sizer_7, 1, wx.ALL | wx.EXPAND, 4)
         sizer_2.Add(sizer_3, 1, wx.EXPAND, 0)
         sizer_10.Add(self.label_3, 0, wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 0)
         sizer_10.Add((8, 8), 0, wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 0)
