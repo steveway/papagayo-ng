@@ -25,10 +25,11 @@ from distutils.core import setup
 import py2exe
 import os
 import sys
-
+import subprocess
+sys.argv.append('py2exe')
 resources = [("", ["papagayo-ng.nsi", "papagayo-ng.ico", "gpl.txt"])]
 for root, dirs, files in os.walk('rsrc'):
-    if ".svn" in root:
+    if ".git" in root:
         continue
     dirdata = (root, [])
     for file in files:
@@ -57,5 +58,21 @@ setup(
     version="1.2",
     data_files=resources
 )
-
-os.system(r"C:\Program Files\NSIS\makensis.exe output\papagayo-ng.nsi")
+setup(
+    windows=[{
+        "script": "papagayo-ng.py",
+        "icon_resources": [(1, "papagayo-ng.ico")],
+    }],
+    options={"py2exe": {
+        "compressed": 1,
+        "optimize": 2,
+        "packages": ["encodings"]
+    }},
+    name="Papagayo-NG",
+    version="1.2",
+    data_files=resources
+)
+nsispath = r"C:\Program Files\NSIS\makensis.exe"
+nsisarg = os.path.join(os.getcwd(), r"dist\papagayo-ng.nsi")
+subprocess.call([nsispath, nsisarg], shell=True, cwd=os.path.join(os.getcwd(), "dist"))
+# os.system(nsispath)
