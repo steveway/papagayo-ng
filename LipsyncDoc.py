@@ -81,8 +81,8 @@ class LipsyncWord:
             for i in range(len(pronunciation_raw)):
                 try:
                     pronunciation.append(phonemeset.conversion[pronunciation_raw[i]])
-                except:
-                    print(("Unknown phoneme:", pronunciation_raw[i], "in word:", text))
+                except:  # TODO: I guess this is an IndexError? We should try that instead of the bare except.
+                    print(_("Unknown phoneme:", pronunciation_raw[i], "in word:", text))
 
             for p in pronunciation:
                 if len(p) == 0:
@@ -482,9 +482,9 @@ class LipsyncDoc:
         if not os.path.isabs(self.soundPath):
             self.soundPath = os.path.normpath(os.path.dirname(self.path) + '/' + self.soundPath)
         self.fps = int(inFile.readline())
-        print(("self.path: %s" % self.path))
+        print(_("self.path: %s" % self.path))
         self.soundDuration = int(inFile.readline())
-        print(("self.soundDuration: %d" % self.soundDuration))
+        print(_("self.soundDuration: %d" % self.soundDuration))
         numVoices = int(inFile.readline())
         for i in range(numVoices):
             voice = LipsyncVoice()

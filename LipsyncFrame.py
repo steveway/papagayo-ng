@@ -105,11 +105,13 @@ class LipsyncFrame(wx.Frame):
         self.mainFrame_menubar.Append(wxglade_tmp_menu, _("&Help"))
         self.SetMenuBar(self.mainFrame_menubar)
         # Menu Bar end
-        self.mainFrame_statusbar = self.CreateStatusBar(2)
+        self.mainFrame_statusbar_fields = [_("Papagayo-NG"), _("Stopped")]
+        self.mainFrame_statusbar = self.CreateStatusBar(len(self.mainFrame_statusbar_fields))
 
         # Tool Bar
         self.mainFrame_toolbar = wx.ToolBar(self, -1, style=wx.TB_FLAT | wx.TB_HORIZONTAL)
         self.SetToolBar(self.mainFrame_toolbar)
+        # TODO: All these globals don't seem to make sense, where not using them anywhere else, slap a self. in front!
         global ID_PLAY
         ID_PLAY = wx.NewId()
         global ID_STOP
@@ -301,9 +303,8 @@ class LipsyncFrame(wx.Frame):
         self.mainFrame_statusbar.SetStatusWidths([-1, 96])
 
         # statusbar fields
-        mainFrame_statusbar_fields = [_("Papagayo-NG"), _("Stopped")]
-        for i in range(len(mainFrame_statusbar_fields)):
-            self.mainFrame_statusbar.SetStatusText(mainFrame_statusbar_fields[i], i)
+        for i in range(len(self.mainFrame_statusbar_fields)):
+            self.mainFrame_statusbar.SetStatusText(self.mainFrame_statusbar_fields[i], i)
         self.mainFrame_toolbar.SetToolBitmapSize((16, 16))
         self.mainFrame_toolbar.Realize()
         self.voiceText.SetMinSize((128, 128))
@@ -312,6 +313,7 @@ class LipsyncFrame(wx.Frame):
 
     def __do_layout(self):
         # begin wxGlade: LipsyncFrame.__do_layout
+        # TODO: 11 different sizers! We should rename them all to something decipherable.
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
         sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_4 = wx.BoxSizer(wx.VERTICAL)
@@ -445,6 +447,7 @@ class LipsyncFrame(wx.Frame):
                 self.doc.voices.append(LipsyncVoice("Voice 1"))
                 self.doc.currentVoice = self.doc.voices[0]
                 # check for a .trans file with the same name as the doc
+                # TODO: Using file() is not recommended and gone in python 3, change to open() if possible.
                 try:
                     txtFile = file(path[0].rsplit('.', 1)[0] + ".trans", 'r')  # TODO: Check if path is correct
                     for line in txtFile:
@@ -703,7 +706,7 @@ class LipsyncFrame(wx.Frame):
             return
         try:
             newFps = int(self.fpsCtrl.GetValue())
-        except:  # TODO: except is too broad
+        except ValueError:
             newFps = self.doc.fps
         if newFps == self.doc.fps:
             return

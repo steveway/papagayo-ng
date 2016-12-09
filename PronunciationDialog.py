@@ -61,6 +61,7 @@ class PronunciationDialog(wx.Dialog):
 
     def __do_layout(self):
         # begin wxGlade: PronunciationDialog.__do_layout
+        # TODO: Even more numbered sizers, also rename these!
         sizer_11 = wx.BoxSizer(wx.VERTICAL)
         sizer_12 = wx.BoxSizer(wx.HORIZONTAL)
         grid_sizer_1 = wx.GridSizer(3, 3, 4, 4)

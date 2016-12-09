@@ -41,6 +41,8 @@ defaultSamplesPerFrame = 4
 defaultSampleWidth = 4
 defaultSamplesPerFrame = 2
 
+
+# TODO: We might ultimately want to rewrite this completely, it's slow and unwieldy.
 class WaveformView(wx.ScrolledWindow):
     def __init__(self, *args, **kwds):
         # begin wxGlade: WaveformView.__init__

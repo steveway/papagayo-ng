@@ -62,6 +62,7 @@ class AboutBox(wx.Dialog):
 
     def __do_layout(self):
         # begin wxGlade: AboutBox.__do_layout
+        # TODO: These sizers need renaming too.
         sizer_13 = wx.BoxSizer(wx.VERTICAL)
         sizer_13.Add(self.htmlView, 0, wx.ALL | wx.EXPAND, 8)
         sizer_13.Add(self.button_12, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.BOTTOM | wx.FIXED_MINSIZE | wx.TOP, 8)
