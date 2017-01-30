@@ -132,7 +132,7 @@ class WaveformView(wx.ScrolledWindow):
                 if True:
                     dc = wx.BufferedPaintDC(self, self.buffer, wx.BUFFER_VIRTUAL_AREA)
                 else:
-                    dc = wx.BufferedPaintDC(self, self.buffer)
+                    dc = wx.BufferedPaintDC(self)
             else:
                 event.Skip()
         else:
@@ -440,8 +440,8 @@ class WaveformView(wx.ScrolledWindow):
             self.maxHeight = self.GetClientSize().height
         self.SetVirtualSize((self.maxWidth, self.maxHeight))
         # clear the current waveform
-        dc = wx.ClientDC(self)
-        self.PrepareDC(dc)
+        dc = wx.AutoBufferedPaintDC(self)
+        #self.PrepareDC(dc)
         dc.SetBackground(wx.Brush(self.GetBackgroundColour()))
         dc.Clear()
         if BUFFERED:
@@ -495,7 +495,9 @@ class WaveformView(wx.ScrolledWindow):
                     # WxWidgets - Phoenix
                     dc.SetClippingRegion(self.clipRect)
             self.Draw(dc)
-            self.Draw(cdc)
+            if (self.doc is not None) and (self.doc.sound is not None):
+                if self.doc.sound.IsPlaying():
+                    self.Draw(cdc)
         else:
             dc = wx.ClientDC(self)
             self.PrepareDC(dc)
