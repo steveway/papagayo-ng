@@ -77,20 +77,25 @@ class LipsyncWord:
             else:
                 pronunciation_raw = phonemeDictionary[text.upper()]
 
+            print("Pronunciation_raw: " + str(pronunciation_raw))
             pronunciation = []
+            # This converts the raw CMU phonemes to the selected ones (Flemming Dobbs or Preston Blair currently)
             for i in range(len(pronunciation_raw)):
                 try:
                     pronunciation.append(phonemeset.conversion[pronunciation_raw[i]])
                 except:
                     print(("Unknown phoneme:", pronunciation_raw[i], "in word:", text))
 
+            print("Pronunciation: " + str(pronunciation))
+            # This creates a new Phoneme object for every phoneme in every word and saves it in a list
             for p in pronunciation:
                 if len(p) == 0:
                     continue
                 phoneme = LipsyncPhoneme()
                 phoneme.text = p
                 self.phonemes.append(phoneme)
-        except:
+        # If the phonemes of a word can't be generated we ask the user to input it
+        except:  # TODO: That should be a KeyError if I'm not mistaken.
             traceback.print_exc()
             # this word was not found in the phoneme dictionary
             dlg = PronunciationDialog(parentWindow, phonemeset.set)
@@ -103,6 +108,9 @@ class LipsyncWord:
                     phoneme.text = p
                     self.phonemes.append(phoneme)
             dlg.Destroy()
+        print("Phonemes: ")
+        for phoneme in self.phonemes:
+            print(phoneme.text)
 
     def RepositionPhoneme(self, phoneme):
         id = 0

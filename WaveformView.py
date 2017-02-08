@@ -162,7 +162,7 @@ class WaveformView(wx.ScrolledWindow):
         self.selectedPhoneme = None
         x, y = event.GetPosition()
         x, y = self.CalcUnscrolledPosition(x, y)
-        self.scrubFrame = x / self.frameWidth
+        self.scrubFrame = x // self.frameWidth
         self.lastFrame = self.scrubFrame
         self.dragStartFrame = self.scrubFrame
         if (self.doc is not None) and (self.doc.sound is not None) and (not self.doc.sound.IsPlaying()):
@@ -330,7 +330,7 @@ class WaveformView(wx.ScrolledWindow):
             except AttributeError:
                 x, y = event.GetLogicalPosition(self.cdc)
             x, y = self.CalcUnscrolledPosition(x, y)
-            frame = x / self.frameWidth
+            frame = x // self.frameWidth
             if frame == self.dragStartFrame:
                 return
             self.dragStartFrame = -1000  # kick it far out of the way
@@ -563,10 +563,10 @@ class WaveformView(wx.ScrolledWindow):
             dc.DrawRectangle(x, 0, self.frameWidth + 1, cs.height)
         elif self.isDragging:
             scrollX, scrollY = self.CalcScrolledPosition(0, 0)
-            firstSample = int(-scrollX / self.sampleWidth) - 1
+            firstSample = int(-scrollX // self.sampleWidth) - 1
             if self.basicScrubbing:
                 firstSample = self.oldFrame * self.samplesPerFrame
-            lastSample = firstSample + int(cs.width / self.sampleWidth) + 3
+            lastSample = firstSample + int(cs.width // self.sampleWidth) + 3
             if self.basicScrubbing:
                 lastSample = self.scrubFrame * self.samplesPerFrame
                 if firstSample > lastSample:
@@ -595,7 +595,7 @@ class WaveformView(wx.ScrolledWindow):
         dc.SetFont(font)
         textWidth, topBorder = dc.GetTextExtent("Ojyg")
         x = firstSample * self.sampleWidth
-        frame = firstSample / self.samplesPerFrame
+        frame = firstSample // self.samplesPerFrame
         fps = int(round(self.doc.fps))
         sample = firstSample
         lastHeight = -1
