@@ -310,7 +310,8 @@ class WaveformView(wx.ScrolledWindow):
             if (self.doc is not None) and (self.doc.sound is not None):
                 while self.doc.sound.IsPlaying():
                     pass  # don't redraw until the playback for the last frame is done
-        self.didresize = True
+        #self.didresize = True
+        self.UpdateDrawing()
 
     def OnMouseWheel(self, event):
         if self.doc is not None:
@@ -486,17 +487,21 @@ class WaveformView(wx.ScrolledWindow):
             # print(self.clipRect)
             if self.clipRect is not None:
                 if not self.isWxPhoenix:
-                    cdc.SetClippingRect(self.clipRect)
+                    #cdc.SetClippingRect(self.clipRect)
+                    pass
                 else:
                     # WxWidgets - Phoenix
-                    cdc.SetClippingRegion(self.clipRect)
+                    #cdc.SetClippingRegion(self.clipRect)
+                    pass
             dc = wx.BufferedDC(cdc, self.buffer)
             if self.clipRect is not None:
                 if not self.isWxPhoenix:
-                    dc.SetClippingRect(self.clipRect)
+                    #dc.SetClippingRect(self.clipRect)
+                    pass
                 else:
                     # WxWidgets - Phoenix
-                    dc.SetClippingRegion(self.clipRect)
+                    #dc.SetClippingRegion(self.clipRect)
+                    pass
             self.Draw(dc)
             if ((self.doc is not None) and (self.doc.sound is not None)) and self.doc.sound.IsPlaying():
                 self.Draw(cdc)
@@ -505,10 +510,12 @@ class WaveformView(wx.ScrolledWindow):
             self.PrepareDC(dc)
             if self.clipRect is not None:
                 if not self.isWxPhoenix:
-                    dc.SetClippingRect(self.clipRect)
+                    #dc.SetClippingRect(self.clipRect)
+                    pass
                 else:
                     # WxWidgets - Phoenix
-                    dc.SetClippingRegion(self.clipRect)
+                    #dc.SetClippingRegion(self.clipRect)
+                    pass
             self.Draw(dc)
 
     def Draw(self, dc):
@@ -601,198 +608,222 @@ class WaveformView(wx.ScrolledWindow):
         lastHeight = -1
         lastHalfHeight = 1
         amp = 0
+        if self.didresize:
+            framerectanglelist = []
+            framerectanglepolygonupper = []
+            framerectanglepolygonlower = []
+            framelinelist = []
+            labellinelist = []
+            labeltextlist = ([], [])
+            self._Buffer = wx.EmptyBitmap(self.maxWidth, self.maxHeight)
+            self.tempdc = wx.BufferedPaintDC(self, self._Buffer)
+            self.tempdc.SetBackground(wx.Brush(self.GetBackgroundColour()))
+            self.tempdc.Clear()
 
-        framerectanglelist = []
-        framelinelist = []
-        labellinelist = []
-        labeltextlist = ([], [])
+            for i in range(int(firstSample), int(lastSample)):
+                if stopwatch:
+                    if i % 100 == 0:
+                        print("Sample " + str(i) + " Time " + str(t2.elapsed))
+                if (sample + 1) % self.samplesPerFrame == 0:
+                    # draw frame marker
+                    # dc.SetPen(wx.Pen(frameCol))  # +0.06 seconds
+                    frameX = (frame + 1) * self.frameWidth
+                    # print("framex: ",frameX)
+                    if (self.frameWidth > 2) or ((frame + 2) % fps == 0):
+                        #dc.DrawLine(frameX, topBorder, frameX, cs.height)  # +0.01 seconds
+                        labellinelist.append((frameX, topBorder, frameX, cs.height))
+                    # draw frame label
+                    if (self.frameWidth > 30) or ((frame + 2) % 5 == 0):
+                        # These three take about 0.01 seconds
+                        labellinelist.append((frameX, 0, frameX, topBorder))
+                        # dc.DrawLine(frameX, 0, frameX, topBorder)
+                        labellinelist.append((frameX + 1, 0, frameX + 1, cs.height))
+                        # dc.DrawLine(frameX + 1, 0, frameX + 1, cs.height)
+                        labeltextlist[0].append(str(frame + 2))
+                        labeltextlist[1].append((frameX + 1, 0))
+                        # dc.DrawLabel(str(frame + 2), wx.Rect(frameX + 1, 0, 128, 128))
 
-        for i in range(int(firstSample), int(lastSample)):
-            if stopwatch:
-                if i % 100 == 0:
-                    print("Sample " + str(i) + " Time " + str(t2.elapsed))
-            if (sample + 1) % self.samplesPerFrame == 0:
-                # draw frame marker
-                # dc.SetPen(wx.Pen(frameCol))  # +0.06 seconds
-                frameX = (frame + 1) * self.frameWidth
-                # print("framex: ",frameX)
-                if (self.frameWidth > 2) or ((frame + 2) % fps == 0):
-                    #dc.DrawLine(frameX, topBorder, frameX, cs.height)  # +0.01 seconds
-                    labellinelist.append((frameX, topBorder, frameX, cs.height))
-                # draw frame label
-                if (self.frameWidth > 30) or ((frame + 2) % 5 == 0):
-                    # These three take about 0.01 seconds
-                    labellinelist.append((frameX, 0, frameX, topBorder))
-                    # dc.DrawLine(frameX, 0, frameX, topBorder)
-                    labellinelist.append((frameX + 1, 0, frameX + 1, cs.height))
-                    # dc.DrawLine(frameX + 1, 0, frameX + 1, cs.height)
-                    labeltextlist[0].append(str(frame + 2))
-                    labeltextlist[1].append((frameX + 1, 0))
-                    # dc.DrawLabel(str(frame + 2), wx.Rect(frameX + 1, 0, 128, 128))
+                amp = self.amp[i]
+                height = round(cs.height * amp)
+                halfHeight = height / 2
 
-            amp = self.amp[i]
-            height = round(cs.height * amp)
-            halfHeight = height / 2
-
-            if SIMPLE_DISPLAY:
-                dc.DrawLine(x, halfClientHeight - halfHeight, x, halfClientHeight + halfHeight)
-            else:
-                if drawPlayMarker and (frame == curFrame):
-                    pass
+                if SIMPLE_DISPLAY:
+                    dc.DrawLine(x, halfClientHeight - halfHeight, x, halfClientHeight + halfHeight)
                 else:
-                    framerectanglelist.append((x, halfClientHeight- halfHeight, self.sampleWidth+1, height))
-                if lastHeight > 0 and not (drawPlayMarker and frame == curFrame):
-                    if lastHeight > height:
-                        lastHeight = height
-                        lastHalfHeight = halfHeight
                     if drawPlayMarker and (frame == curFrame):
                         pass
                     else:
-                        framelinelist.append((x, halfClientHeight - lastHalfHeight + 1, x, halfClientHeight + lastHalfHeight - 1))
-            x += self.sampleWidth
-            sample += 1
-            if sample % self.samplesPerFrame == 0:
-                frame += 1
-                """
-                # draw frame markers
-                frameX = frame * self.frameWidth
-                dc.SetPen(wx.Pen(frameCol))
-                dc.DrawLine(frameX, topBorder, frameX, cs.height)
-                dc.SetBrush(wx.Brush(fillColor))
-                dc.SetPen(wx.Pen(lineColor))
-                """
-            lastHeight = height
-            lastHalfHeight = halfHeight
+                        framerectanglelist.append((x, halfClientHeight - halfHeight, self.sampleWidth+1, height))
+                        framerectanglepolygonupper.append((x, halfClientHeight - halfHeight))
+                        framerectanglepolygonupper.append((x + self.sampleWidth, halfClientHeight - halfHeight))
+                        framerectanglepolygonlower.append((x, (halfClientHeight - halfHeight) + height))
+                        framerectanglepolygonlower.append((x + self.sampleWidth, (halfClientHeight - halfHeight) + height))
+                    if lastHeight > 0 and not (drawPlayMarker and frame == curFrame):
+                        if lastHeight > height:
+                            lastHeight = height
+                            lastHalfHeight = halfHeight
+                        if drawPlayMarker and (frame == curFrame):
+                            pass
+                        else:
+                            framelinelist.append((x, halfClientHeight - lastHalfHeight + 1, x, halfClientHeight + lastHalfHeight - 1))
+                x += self.sampleWidth
+                sample += 1
+                if sample % self.samplesPerFrame == 0:
+                    frame += 1
+                    """
+                    # draw frame markers
+                    frameX = frame * self.frameWidth
+                    dc.SetPen(wx.Pen(frameCol))
+                    dc.DrawLine(frameX, topBorder, frameX, cs.height)
+                    dc.SetBrush(wx.Brush(fillColor))
+                    dc.SetPen(wx.Pen(lineColor))
+                    """
+                lastHeight = height
+                lastHalfHeight = halfHeight
 
-        # giving the brushes for every frame is quite slow, better do something special for the one case it differs
-        #  dc.DrawRectangleList(framerectanglelist[0], framerectanglelist[1], framerectanglelist[2])  # saves about 0.04 to 0.08 seconds here
-        #  dc.DrawLineList(framelinelist[0], framelinelist[1])
-        # Exporting the drawing to these functions reduced the time from about 0.38 seconds to 0.14 seconds here!
-        # SIMPLE_DISPLAY takes about 0.11 seconds, so that is quite an improvement.
-        dc.DrawLineList(labellinelist, wx.Pen(frameCol))
-        dc.DrawTextList(labeltextlist[0], labeltextlist[1])
-        if not SIMPLE_DISPLAY:
-            dc.DrawRectangleList(framerectanglelist, wx.Pen(lineColor), wx.Brush(fillColor))  # saves about 0.04 to 0.08 seconds here
-            dc.DrawLineList(framelinelist, wx.Pen(fillColor))
+            # giving the brushes for every frame is quite slow, better do something special for the one case it differs
+            #  dc.DrawRectangleList(framerectanglelist[0], framerectanglelist[1], framerectanglelist[2])  # saves about 0.04 to 0.08 seconds here
+            #  dc.DrawLineList(framelinelist[0], framelinelist[1])
+            # Exporting the drawing to these functions reduced the time from about 0.38 seconds to 0.14 seconds here!
+            # SIMPLE_DISPLAY takes about 0.11 seconds, so that is quite an improvement.
+            self.tempdc.DrawLineList(labellinelist, wx.Pen(frameCol))
+            self.tempdc.DrawTextList(labeltextlist[0], labeltextlist[1])
+            if not SIMPLE_DISPLAY:
+                framerectanglepolygonlower.reverse()
+                self.tempdc.SetPen(wx.Pen(lineColor))
+                self.tempdc.SetBrush(wx.Brush(fillColor))
+
+                self.tempdc.DrawPolygon(framerectanglepolygonupper+framerectanglepolygonlower)
+                #self.tempdc.DrawRectangleList(framerectanglelist, wx.Pen(lineColor), wx.Brush(fillColor))  # saves about 0.04 to 0.08 seconds here
+                #self.tempdc.DrawLineList(framelinelist, wx.Pen(fillColor))
 
 
-        # draw the phrases/words/phonemes
-        if self.doc.currentVoice is not None:
-            topBorder += 4
-            font.SetPointSize(8)
-            font.SetWeight(wx.BOLD)
-            dc.SetFont(font)
-            textWidth, textHeight = dc.GetTextExtent("Ojyg")
-            textHeight += 6
-            self.phraseBottom = topBorder + textHeight
-            self.wordBottom = topBorder + 4 + textHeight + textHeight + textHeight
-            self.phonemeTop = cs.height - 4 - textHeight - textHeight
-            dc.SetTextForeground(textCol)
-            # text(str, xy), rectangle
-            phrasedrawtextlist = ([], [])
-            phrasedrawrectanglelist = []
-            worddrawtextlist = ([], [])
-            worddrawrectanglelist = []
-            phonemedrawtextlist = ([], [])
-            phonemedrawrectanglelist = []
-            for phrase in self.doc.currentVoice.phrases:
-                dc.SetBrush(wx.Brush(phraseFillCol))
-                dc.SetPen(wx.Pen(phraseOutlineCol))
-                r = wx.Rect(phrase.startFrame * self.frameWidth, topBorder,
-                            (phrase.endFrame - phrase.startFrame + 1) * self.frameWidth + 1, textHeight)
-                if (self.clipRect is not None) and (not r.Intersects(self.clipRect)):
-                    continue  # speed things up by skipping off-screen phrases
-                phrase.top = r.y
-                phrase.bottom = r.y + r.height
-                #dc.DrawRectangle(r.x, r.y, r.width, r.height)
-                phrasedrawrectanglelist.append((r.x, r.y, r.width, r.height))
-                r.Inflate(-4, 0)
-                if not self.isWxPhoenix:
-                    dc.SetClippingRect(r)
-                else:
-                    # WxWidgets - Phoenix
-                    dc.SetClippingRegion(r)
-                #dc.DrawLabel(phrase.text, r, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
-                phrasedrawtextlist[0].append(phrase.text)
-                phrasedrawtextlist[1].append((r.x, r.y))
-                dc.DestroyClippingRegion()
-                if self.clipRect is not None:
-                    if not self.isWxPhoenix:
-                        dc.SetClippingRect(self.clipRect)
-                    else:
-                        # WxWidgets - Phoenix
-                        dc.SetClippingRegion(self.clipRect)
-
-                wordCount = 0
-                for word in phrase.words:
-                    # dc.SetBrush(wx.Brush(wordFillCol))
-                    # dc.SetPen(wx.Pen(wordOutlineCol))
-                    r = wx.Rect(word.startFrame * self.frameWidth, topBorder + 4 + textHeight,
-                                (word.endFrame - word.startFrame + 1) * self.frameWidth + 1, textHeight)
-                    if wordCount % 2:
-                        r.y += textHeight
-                    word.top = r.y
-                    word.bottom = r.y + r.height
+            # draw the phrases/words/phonemes
+            if self.doc.currentVoice is not None:
+                topBorder += 4
+                font.SetPointSize(8)
+                font.SetWeight(wx.BOLD)
+                dc.SetFont(font)
+                textWidth, textHeight = dc.GetTextExtent("Ojyg")
+                textHeight += 6
+                self.phraseBottom = topBorder + textHeight
+                self.wordBottom = topBorder + 4 + textHeight + textHeight + textHeight
+                self.phonemeTop = cs.height - 4 - textHeight - textHeight
+                dc.SetTextForeground(textCol)
+                # text(str, xy), rectangle
+                phrasedrawtextlist = ([], [])
+                phrasedrawrectanglelist = []
+                worddrawtextlist = ([], [])
+                worddrawrectanglelist = []
+                phonemedrawtextlist = ([], [])
+                phonemedrawrectanglelist = []
+                for phrase in self.doc.currentVoice.phrases:
+                    #dc.SetBrush(wx.Brush(phraseFillCol))
+                    #dc.SetPen(wx.Pen(phraseOutlineCol))
+                    r = wx.Rect(phrase.startFrame * self.frameWidth, topBorder,
+                                (phrase.endFrame - phrase.startFrame + 1) * self.frameWidth + 1, textHeight)
+                    if (self.clipRect is not None) and (not r.Intersects(self.clipRect)):
+                        continue  # speed things up by skipping off-screen phrases
+                    phrase.top = r.y
+                    phrase.bottom = r.y + r.height
                     #dc.DrawRectangle(r.x, r.y, r.width, r.height)
-                    worddrawrectanglelist.append((r.x, r.y, r.width, r.height))
+                    phrasedrawrectanglelist.append((r.x, r.y, r.width, r.height))
                     r.Inflate(-4, 0)
                     # if not self.isWxPhoenix:
                     #     dc.SetClippingRect(r)
                     # else:
                     #     # WxWidgets - Phoenix
                     #     dc.SetClippingRegion(r)
-                    #dc.DrawLabel(word.text, r, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
-                    worddrawtextlist[0].append(word.text)
-                    worddrawtextlist[1].append((r.x, r.y))
-                    #dc.DestroyClippingRegion()
+                    #dc.DrawLabel(phrase.text, r, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
+                    phrasedrawtextlist[0].append(phrase.text)
+                    phrasedrawtextlist[1].append((r.x, r.y))
+                    # dc.DestroyClippingRegion()
                     # if self.clipRect is not None:
                     #     if not self.isWxPhoenix:
                     #         dc.SetClippingRect(self.clipRect)
                     #     else:
                     #         # WxWidgets - Phoenix
                     #         dc.SetClippingRegion(self.clipRect)
-                    # dc.SetBrush(wx.Brush(phonemeFillCol))
-                    # dc.SetPen(wx.Pen(phonemeOutlineCol))
-                    phonemeCount = 0
-                    for phoneme in word.phonemes:
-                        r = wx.Rect(phoneme.frame * self.frameWidth, cs.height - 4 - textHeight, self.frameWidth + 1,
-                                    textHeight)
-                        if phonemeCount % 2:
-                            r.y -= textHeight
-                        phoneme.top = r.y
-                        phoneme.bottom = r.y + r.height
-                        #dc.DrawRectangle(r.x, r.y, r.width, r.height)
-                        phonemedrawrectanglelist.append((r.x, r.y, r.width, r.height))
-                        #dc.DrawLabel(phoneme.text, r, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
-                        phonemedrawtextlist[0].append(phoneme.text)
-                        phonemedrawtextlist[1].append((r.x, r.y))
-                        phonemeCount += 1
-                    wordCount += 1
-            dc.DrawRectangleList(phrasedrawrectanglelist, wx.Pen(phraseOutlineCol), wx.Brush(phraseFillCol))
-            dc.DrawTextList(phrasedrawtextlist[0], phrasedrawtextlist[1])
-            dc.DrawRectangleList(worddrawrectanglelist, wx.Pen(wordOutlineCol), wx.Brush(wordFillCol))
-            dc.DrawTextList(worddrawtextlist[0], worddrawtextlist[1])
-            dc.DrawRectangleList(phonemedrawrectanglelist, wx.Pen(phonemeOutlineCol), wx.Brush(phonemeFillCol))
-            dc.DrawTextList(phonemedrawtextlist[0], phonemedrawtextlist[1])
 
+                    wordCount = 0
+                    for word in phrase.words:
+                        # dc.SetBrush(wx.Brush(wordFillCol))
+                        # dc.SetPen(wx.Pen(wordOutlineCol))
+                        r = wx.Rect(word.startFrame * self.frameWidth, topBorder + 4 + textHeight,
+                                    (word.endFrame - word.startFrame + 1) * self.frameWidth + 1, textHeight)
+                        if wordCount % 2:
+                            r.y += textHeight
+                        word.top = r.y
+                        word.bottom = r.y + r.height
+                        #dc.DrawRectangle(r.x, r.y, r.width, r.height)
+                        worddrawrectanglelist.append((r.x, r.y, r.width, r.height))
+                        r.Inflate(-4, 0)
+                        # if not self.isWxPhoenix:
+                        #     dc.SetClippingRect(r)
+                        # else:
+                        #     # WxWidgets - Phoenix
+                        #     dc.SetClippingRegion(r)
+                        #dc.DrawLabel(word.text, r, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
+                        worddrawtextlist[0].append(word.text)
+                        worddrawtextlist[1].append((r.x, r.y))
+                        #dc.DestroyClippingRegion()
+                        # if self.clipRect is not None:
+                        #     if not self.isWxPhoenix:
+                        #         dc.SetClippingRect(self.clipRect)
+                        #     else:
+                        #         # WxWidgets - Phoenix
+                        #         dc.SetClippingRegion(self.clipRect)
+                        # dc.SetBrush(wx.Brush(phonemeFillCol))
+                        # dc.SetPen(wx.Pen(phonemeOutlineCol))
+                        phonemeCount = 0
+                        for phoneme in word.phonemes:
+                            r = wx.Rect(phoneme.frame * self.frameWidth, cs.height - 4 - textHeight, self.frameWidth + 1,
+                                        textHeight)
+                            if phonemeCount % 2:
+                                r.y -= textHeight
+                            phoneme.top = r.y
+                            phoneme.bottom = r.y + r.height
+                            #dc.DrawRectangle(r.x, r.y, r.width, r.height)
+                            phonemedrawrectanglelist.append((r.x, r.y, r.width, r.height))
+                            #dc.DrawLabel(phoneme.text, r, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
+                            phonemedrawtextlist[0].append(phoneme.text)
+                            phonemedrawtextlist[1].append((r.x, r.y))
+                            phonemeCount += 1
+                        wordCount += 1
+                self.tempdc.DrawRectangleList(phrasedrawrectanglelist, wx.Pen(phraseOutlineCol), wx.Brush(phraseFillCol))
+                self.tempdc.DrawTextList(phrasedrawtextlist[0], phrasedrawtextlist[1])
+                self.tempdc.DrawRectangleList(worddrawrectanglelist, wx.Pen(wordOutlineCol), wx.Brush(wordFillCol))
+                self.tempdc.DrawTextList(worddrawtextlist[0], worddrawtextlist[1])
+                self.tempdc.DrawRectangleList(phonemedrawrectanglelist, wx.Pen(phonemeOutlineCol), wx.Brush(phonemeFillCol))
+                self.tempdc.DrawTextList(phonemedrawtextlist[0], phonemedrawtextlist[1])
+                #self.tempbuffer = wx.EmptyBitmap(self.maxWidth, self.maxHeight)
+                #self.tempdc = wx.MemoryDCFromDC(dc)
+                dc.Blit(0, 0, self.tempdc.GetSize()[0], self.tempdc.GetSize()[1], self.tempdc, 0, 0)
+        else:
+            if self.tempdc:
+                dc.Blit(0,0,self.tempdc.GetSize()[0], self.tempdc.GetSize()[1],self.tempdc,0,0)
+                pass
         # draw the play marker
+        #dc.Blit(0, 0, self.tempdc.GetSize()[0], self.tempdc.GetSize()[1], self.tempdc, 500, 0)
         if drawPlayMarker:
             x = curFrame * self.frameWidth
             # foreground
             height = round(cs.height * amp)
             # outline
-            dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            #dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            dc.SetBrush(wx.Brush(playBackCol))
             dc.SetPen(wx.Pen(playOutlineCol))
             dc.DrawRectangle(x, 0, self.frameWidth + 1, cs.height)
             # Draw Big Fat Frame Marker
             if self.isDragging:
-                dc.DestroyClippingRegion()
+                #dc.DestroyClippingRegion()
                 font.SetPointSize(16)
                 font.SetWeight(wx.BOLD)
                 dc.SetFont(font)
                 dc.DrawLabel(str(curFrame + 1), wx.Rect(x - 50, cs.height * 0.4, 100, 125), wx.ALIGN_CENTER)
         try:
             dc.EndDrawing()
+            self.tempdc.EndDrawing()
         except AttributeError:
             pass
         if stopwatch:

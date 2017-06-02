@@ -29,7 +29,7 @@ import re
 # begin wxGlade: dependencies
 from MouthView import MouthView
 
-batched_drawing = False
+batched_drawing = True
 
 if batched_drawing:
     from WaveformViewFast import WaveformView
@@ -639,7 +639,8 @@ class LipsyncFrame(wx.Frame):
             self.phonemeset.Load(phonemeset_name)
             self.doc.dirty = True
             self.doc.currentVoice.RunBreakdown(self.doc.soundDuration, self, language, self.langman, self.phonemeset)
-            self.waveformView.UpdateDrawing()
+            self.waveformView.didresize = True
+            #self.waveformView.UpdateDrawing()
             self.ignoreTextChanges = True
             self.voiceText.SetValue(self.doc.currentVoice.text)
             self.ignoreTextChanges = False
