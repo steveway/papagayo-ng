@@ -536,6 +536,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.setMouseTracking(True)
 
         # Other initialization
+        self.voice_scenes = {}
         self.main_window = self.parentWidget().parentWidget().parentWidget()  # lol
         self.doc = None
         self.currently_selected_object = None
@@ -780,8 +781,9 @@ class WaveformView(QtWidgets.QGraphicsView):
                 self.first_update = False
 
     def create_waveform(self):
-        if self.waveform_polygon in self.scene().items():
-            self.scene().removeItem(self.waveform_polygon)
+        for item in self.scene().items():
+            if type(item) == type(QtWidgets.QGraphicsPolygonItem()):
+                self.scene().removeItem(item)
         available_height = self.height() / 2
         fitted_samples = self.amp * available_height
         offset = 0  # available_height / 2
@@ -814,7 +816,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         progress.close()
         main_window.statusbar.showMessage("Papagayo-NG")
 
-    def create_movbuttons(self):
+    def create_movbuttons(self, recreate=False):
         if self.doc is not None:
             self.setUpdatesEnabled(False)
             font_metrics = QtGui.QFontMetrics(font)
@@ -823,15 +825,22 @@ class WaveformView(QtWidgets.QGraphicsView):
             top_border += 4
             main_window = self.parentWidget().parentWidget().parentWidget()
             current_num = 0
+            if not recreate:
+                if self.doc.current_voice in self.voice_scenes:
+                    self.setScene(self.voice_scenes[self.doc.current_voice][0])
+                    self.main_node = self.voice_scenes[self.doc.current_voice][1]
+                    self.setUpdatesEnabled(True)
+                    return None
             self.main_node = Node(self.doc.current_voice.text)  # Not actually needed, but should make everything a bit easier
             progress = QtWidgets.QProgressDialog("Creating Buttons", "Cancel", 0,
                                                  self.doc.current_voice.num_children, self)
             progress.setWindowTitle("Progress")
             progress.setModal(True)
+            temp_scene = SceneWithDrag(self)
             for phrase in self.doc.current_voice.phrases:
                 self.temp_button = MovableButton(phrase, self)
                 self.temp_button.node = Node(self.temp_button, parent=self.main_node)
-                temp_scene_widget = self.scene().addWidget(self.temp_button)
+                temp_scene_widget = temp_scene.addWidget(self.temp_button)
                 temp_rect = QtCore.QRect(phrase.start_frame * self.frame_width, top_border,
                                          (phrase.end_frame - phrase.start_frame) * self.frame_width + 1, text_height)
                 temp_scene_widget.setGeometry(temp_rect)
@@ -847,7 +856,7 @@ class WaveformView(QtWidgets.QGraphicsView):
                 for word in phrase.words:
                     self.temp_button = MovableButton(word, self)
                     self.temp_button.node = Node(self.temp_button, parent=self.temp_phrase.node)
-                    temp_scene_widget = self.scene().addWidget(self.temp_button)
+                    temp_scene_widget = temp_scene.addWidget(self.temp_button)
                     temp_rect = QtCore.QRect(word.start_frame * self.frame_width, top_border + 4 + text_height +
                                              (text_height * (word_count % 2)), (word.end_frame - word.start_frame) *
                                              self.frame_width + 1, text_height)
@@ -864,7 +873,7 @@ class WaveformView(QtWidgets.QGraphicsView):
                     for phoneme in word.phonemes:
                         self.temp_button = MovableButton(phoneme, self, phoneme_count % 2)
                         self.temp_button.node = Node(self.temp_button, parent=self.temp_word.node)
-                        temp_scene_widget = self.scene().addWidget(self.temp_button)
+                        temp_scene_widget = temp_scene.addWidget(self.temp_button)
                         temp_rect = QtCore.QRect(phoneme.frame * self.frame_width, self.height() -
                                                  (self.horizontalScrollBar().height() * 1.5) -
                                                  (text_height + (text_height * (phoneme_count % 2))),
@@ -884,6 +893,12 @@ class WaveformView(QtWidgets.QGraphicsView):
             progress.close()
             main_window.statusbar.showMessage("Papagayo-NG")
             self.setUpdatesEnabled(True)
+            self.voice_scenes[self.doc.current_voice] = [None, None]
+            self.voice_scenes[self.doc.current_voice][0] = temp_scene
+            self.voice_scenes[self.doc.current_voice][1] = self.main_node
+            for item in self.voice_scenes[self.doc.current_voice][0].items():
+                print(item)
+            self.setScene(temp_scene)
 
     def recalc_waveform(self):
         duration = self.doc.sound.Duration()
@@ -906,21 +921,19 @@ class WaveformView(QtWidgets.QGraphicsView):
         progress.close()
 
     def set_document(self, document, force=False):
-        if document != self.doc or force:
-            self.doc = document
-            if (self.doc is not None) and (self.doc.sound is not None):
-                self.recalc_waveform()
-                self.scene().clear()
-                self.scene().update()
-                self.create_movbuttons()
-                self.create_waveform()
-                self.temp_play_marker = self.scene().addRect(0, 1, self.frame_width + 1, self.height(),
-                                                             QtGui.QPen(play_outline_col),
-                                                             QtGui.QBrush(play_fore_col, QtCore.Qt.SolidPattern))
-                self.temp_play_marker.setZValue(1000)
-                self.temp_play_marker.setOpacity(0.5)
-                self.temp_play_marker.setVisible(False)
-                self.setViewportUpdateMode(QtWidgets.QGraphicsView.FullViewportUpdate)
+        self.doc = document
+        if (self.doc is not None) and (self.doc.sound is not None):
+            self.recalc_waveform()
+            self.scene().update()
+            self.create_movbuttons(recreate=force)
+            self.create_waveform()
+            self.temp_play_marker = self.scene().addRect(0, 1, self.frame_width + 1, self.height(),
+                                                         QtGui.QPen(play_outline_col),
+                                                         QtGui.QBrush(play_fore_col, QtCore.Qt.SolidPattern))
+            self.temp_play_marker.setZValue(1000)
+            self.temp_play_marker.setOpacity(0.5)
+            self.temp_play_marker.setVisible(False)
+            self.setViewportUpdateMode(QtWidgets.QGraphicsView.FullViewportUpdate)
 
     def on_slider_change(self, value):
         self.scroll_position = value

@@ -607,7 +607,7 @@ class LipsyncFrame:
         self.main_window.text_edit.setText(self.doc.current_voice.text)
         self.ignore_text_changes = False
         self.main_window.waveform_view.first_update = True
-        self.main_window.waveform_view.set_document(self.doc, True)
+        self.main_window.waveform_view.set_document(self.doc)
         self.main_window.waveform_view.update()
         self.main_window.mouth_view.draw_me()
         self.doc.dirty = prev_dirty
