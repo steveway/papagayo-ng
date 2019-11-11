@@ -30,68 +30,84 @@
 # etc=CDGKNRSThYZ
 
 phoneme_set = [
-    'AI',
-    'O',
-    'E',
+    'A', #
+    'A_', #
+    'AE', #
+    'I', #
     'U',
-    'etc',  # this covers Preston Blair's CDGKNRSThYZ mouth shape
-    'L',
-    'WQ',
-    'MBP',
-    'FV',
-    'rest'  # not really a phoneme - this is used in-between phrases when the mouth is at rest
+    'E',
+    'E_',
+    'O',
+    'O_',
+
+    'K',
+    'C', 
+    'P',
+    'W',
+    'rest'
+      # not really a phoneme - this is used in-between phrases when the mouth is at rest
 ]
 
 # Phoneme conversion dictionary: CMU on the left to Preston Blair on the right
 phoneme_conversion = {
-    'a': 'AI',  # odd     AA D
-    'a:': 'AI',
-    'ae': 'AI',
-    'ae:': 'AI',  # at   AE T
-    'i': 'AI',
-    'i:': 'AI',
-    'u': 'AI',  # hut  HH AH T
-    'u:': 'AI',
-    'ri': 'AI',
-    'ru': 'O',  # ought AO T
-    'ilu': 'O',
-    'ilu:': 'O',
-    'e': 'O',  # cow   K AW
-    'e:': 'O',
-    'ai': 'O',
-    'o': 'AI',  # hide HH AY D
-    'o:': 'AI',
-    'ou': 'AI',
+    'a': 'A',  # odd     AA D
+    'a:': 'A_',
+    'ae': 'AE',
+    'ae:': 'AE',  # at   AE T
+    'i': 'I',
+    'i:': 'I_',
+    'u': 'U',  # hut  HH AH T
+    'u:': 'U',
+    'ri': 'i',
+    'ru': 'i',  # ought AO T
+    'ilu': 'i',
+    'ilu:': 'i',
+    'e': 'E',  # cow   K AW
+    'e:': 'E_',
+    'ai': 'I',   #check this
+    'o': 'O',  # hide HH AY D
+    'o:': 'O_',
+    'ou': 'U',
+
+    'k': 'K',
+    'g': 'K',
+    'j': 'k',
+    'µ': 'k',
+    'c':'C',
+    't':'K',
+    'd':'K',
+    't^':'K',
+    'd^':'K', #check this
+    'n':'K',
+    'p':'P',
+    'b':'P',
+    'm':'P',
+    'mb':'P',
+    'y':'K',
+    'r':'K',
+    'l':'K',
+    'w':'W',
+    's^':'SHA',
+    's':'K',
+    'h':'K',
+    'f':'F',
+
+    'ii':'I_',
+    'ai':'AE',
+    'uu':'U',
+    'nd^':'K', #check this
+    'uu':'U_',
+    'd^':'K', #check this
+    'c^':'C',
+    'jn': 'K', #not right
+    'ng':'K',
+    '@':'K'
 
 
-    'k': 'MBP',  # be    B IY
-    'g': 'etc',  # cheese   CH IY Z
-    'n': 'etc',  # dee   D IY
-    'g*': 'etc',  # thee DH IY
-    'c': 'E',  # Ed    EH D
-    'j': 'E',
-    'jn': 'E',
-    'jnn': 'E',  # hurt  HH ER T
-    'j': 'E',
-    't': 'E',
-    'd': 'E',  # ate   EY T
-    'n': 'E',
-    't': 'E',
-    'd': 'FV',  # fee    F IY
-    'p': 'etc',  # green G R IY N
-    'b': 'etc',  # he   HH IY
-    'm': 'AI',  # it   IH T
-    'bh': 'AI',
-    'j': 'AI',
-    'r': 'E',  # eat   IY T
-    'l': 'E',
-    'w': 'E',
-    's': 'etc',  # gee  JH IY
-    'h': 'etc',  # key   K IY
-    'f': 'L',  # lee L IY
-    'M': 'MBP',  # me    M IY
-    
-    'ZH': 'etc',  # seizure  S IY ZH ER
-    # The following phonemes are not part of the CMU phoneme set, but are meant to fix bugs in the CMU dictionary
-    'E21': 'E'  # E21 is used in ENGINEER
+
+
+
+
+   
+
 }
