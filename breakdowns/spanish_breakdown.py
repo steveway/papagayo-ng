@@ -231,13 +231,17 @@ def breakdownWord(input_word, recursive=False):
         if phoneme != previous_phoneme:
             temp_phonemes.append(phoneme)
         previous_phoneme = phoneme
+    print(temp_phonemes)
+    print(len(temp_phonemes))
     return temp_phonemes
+
 
 
 if __name__ == '__main__':
     # test the function
-    test_words = ['Holas', 'amigos', 'si', 'español', 'padré', 'Selecciones', 'de', 'la', 'semana', 'Los', 'mejores',
-                  'sitios', 'los', 'derechos', 'humanos', 'en', 'américa', 'latina', 'y', 'färger', 'på', 'hänsyn']
+    test_words = ['Holas', 'amigos', 'si', 'espaï¿½ol', 'padrï¿½', 'Selecciones', 'de', 'la', 'semana', 'Los', 'mejores',
+                  'sitios', 'los', 'derechos', 'humanos', 'en', 'amï¿½rica', 'latina', 'y', 'fï¿½rger', 'pï¿½', 'hï¿½nsyn']
     for eachword in test_words:
         print(eachword, breakdownWord(unicode(eachword, input_encoding)), " ".join(
             breakdownWord(unicode(eachword, input_encoding))))
+    

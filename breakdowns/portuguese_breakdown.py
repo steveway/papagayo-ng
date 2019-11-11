@@ -41,7 +41,7 @@ input_encoding = locale.getdefaultlocale()[1]  # standard system encoding??
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # Vowels and accented vowels
-# à â ã é ê í i ó ô õ ú
+# ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ i ï¿½ ï¿½ ï¿½ ï¿½
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 setvowels = u'aeiou' + \
@@ -73,7 +73,7 @@ def breakdownWord(word, recursive=False):
         'w': 'W',
         'y': 'IY0',
         'z': 'Z',
-        u'\N{LATIN SMALL LETTER C WITH CEDILLA}': 'S',  # ç
+        u'\N{LATIN SMALL LETTER C WITH CEDILLA}': 'S',  # ï¿½
     }
 
     easy_consonants = simple_convert.keys()
@@ -107,11 +107,11 @@ def breakdownWord(word, recursive=False):
         elif letter in ['u', u'\N{LATIN SMALL LETTER U WITH ACUTE}']:
             # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
             # Special rule to digraphs consonant:
-            # qu and gu (followed by e or i):  aquilo, questão, quilo, querida, guerra, águia
-            # ?need fix exceptions when vowel u is pronounced : cinquenta, frequente, tranquilo, linguiça, aguentar
+            # qu and gu (followed by e or i):  aquilo, questï¿½o, quilo, querida, guerra, ï¿½guia
+            # ?need fix exceptions when vowel u is pronounced : cinquenta, frequente, tranquilo, linguiï¿½a, aguentar
             # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
             if previous == 'q':  # digraph consonant Qu
-                # ['e', 'i', 'é', 'í', 'ê', 'î']
+                # ['e', 'i', 'ï¿½', 'ï¿½', 'ï¿½', 'ï¿½']
                 if len(word) > pos + 1 and word[pos + 1] in ['e', 'i', u'\N{LATIN SMALL LETTER E WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER I WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER E WITH CIRCUMFLEX}',
@@ -120,7 +120,7 @@ def breakdownWord(word, recursive=False):
                 else:
                     phonemes.append('UW0')
             elif previous == 'g':  # digraph consonant Gu
-                # ['e', 'i', 'é', 'í', 'ê', 'î']
+                # ['e', 'i', 'ï¿½', 'ï¿½', 'ï¿½', 'ï¿½']
                 if len(word) > pos + 1 and word[pos + 1] in ['e', 'i', u'\N{LATIN SMALL LETTER E WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER I WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER E WITH CIRCUMFLEX}',
@@ -136,7 +136,7 @@ def breakdownWord(word, recursive=False):
             # C
         elif letter == 'c':
             if previous == 's':  # digraph consonant sC #asCender
-                # ['e', 'i', 'é', 'í', 'ê', 'î']
+                # ['e', 'i', 'ï¿½', 'ï¿½', 'ï¿½', 'ï¿½']
                 if len(word) > pos + 1 and word[pos + 1] in ['e', 'i', u'\N{LATIN SMALL LETTER E WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER I WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER E WITH CIRCUMFLEX}',
@@ -146,7 +146,7 @@ def breakdownWord(word, recursive=False):
                     phonemes.append('S')
                     phonemes.append('K')
             if previous == 'x':  # digraph consonant xC #exCelente
-                # ['e', 'i', 'é', 'í', 'ê', 'î']
+                # ['e', 'i', 'ï¿½', 'ï¿½', 'ï¿½', 'ï¿½']
                 if len(word) > pos + 1 and word[pos + 1] in ['e', 'i', u'\N{LATIN SMALL LETTER E WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER I WITH ACUTE}',
                                                              u'\N{LATIN SMALL LETTER E WITH CIRCUMFLEX}',
@@ -183,7 +183,7 @@ def breakdownWord(word, recursive=False):
 
         # M
         elif letter == 'm':
-            # ['i', 'o', 'u', 'í', 'ó', 'ú', 'î', 'ô', õ]
+            # ['i', 'o', 'u', 'ï¿½', 'ï¿½', 'ï¿½', 'ï¿½', 'ï¿½', ï¿½]
             if previous in ['i', 'o', 'u', u'\N{LATIN SMALL LETTER I WITH ACUTE}',
                             u'\N{LATIN SMALL LETTER O WITH ACUTE}', u'\N{LATIN SMALL LETTER U WITH ACUTE}',
                             u'\N{LATIN SMALL LETTER I WITH CIRCUMFLEX}', u'\N{LATIN SMALL LETTER O WITH CIRCUMFLEX}',
@@ -214,7 +214,7 @@ def breakdownWord(word, recursive=False):
             if len(word) > pos + 1 and word[pos + 1] == 'c':
                 pass  # xC handled under #C
             else:
-                phonemes.append('SH')  # There are some exceptions where X have phoneme "KS" like táxi = T A K S I
+                phonemes.append('SH')  # There are some exceptions where X have phoneme "KS" like tï¿½xi = T A K S I
             #
         elif letter in easy_consonants:
             phonemes.append(simple_convert[letter])
@@ -237,6 +237,7 @@ def breakdownWord(word, recursive=False):
         if phoneme != previous_phoneme:
             temp_phonemes.append(phoneme)
         previous_phoneme = phoneme
+    
     return temp_phonemes
 
 
@@ -244,9 +245,9 @@ if __name__ == "__main__":
     testwords = ['casa', 'agilidade', 'guarda',
                  'telhado', 'marinheiro', 'chave', 'passo', 'carro',
                  'guerra', 'guia', 'queijo', 'quiabo',
-                 'crescer', 'desço', 'exceção', 'zero',
-                 'alça', 'xaxim',
-                 'gorila', 'escada', 'mecânico'
+                 'crescer', 'desï¿½o', 'exceï¿½ï¿½o', 'zero',
+                 'alï¿½a', 'xaxim',
+                 'gorila', 'escada', 'mecï¿½nico'
                  ]
     for word in testwords:
         print(word, breakdownWord(unicode(word, input_encoding)))
