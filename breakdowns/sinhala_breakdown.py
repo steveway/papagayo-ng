@@ -35,18 +35,14 @@ def breakdownWord(input_word, recursive=False):
     word = input_word.strip(" ")
     y = Transliterator()
     mid_word = y.encoder(word)
-    print("mid_word ")
-    print(mid_word )
+    
     phonesStr = shewa_analyse(mid_word)
-    print("phonesStr")
-    print(phonesStr)
     
     temp_phonemes = phonesStr.split("-")
     #temp_phonemes_new = temp_phonemes[:len(temp_phonemes)-1]
     print(temp_phonemes)
     return temp_phonemes
 
-breakdownWord("ඔක්කොම")
 
 if __name__ == '__main__':
     # test the function
