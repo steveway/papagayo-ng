@@ -63,8 +63,8 @@ class Schwa_Analysis:
         return self.scheme
 
     def rule_one(self, word):  # // Implements Rule #1 - Replace first syllable schwa with /a/
-        phones = word.strip('-').split('-')
-        print(phones)
+        phones = word.strip(' ').strip('-').split('-')
+        #print(phones)
         trans = ''
         if phones[0] in self.scheme:
             value = self.scheme[phones[0]]
@@ -84,7 +84,7 @@ class Schwa_Analysis:
         return trans
 
     def rule_two(self, word):  # Implements Rule #2 - Occurrences with /r/ and /h/
-        phones = word.strip('-').split('-')
+        phones = word.strip(' ').strip('-').split('-')
         trans = ''
         for i in range(1, len(phones)):
             phone = phones[i]
@@ -108,7 +108,7 @@ class Schwa_Analysis:
         return trans
 
     def rule_three(self, word):  # // Implements Rule #3 - If /a/, /e/, /ae/, /o/, /@/ is followed by /h/ and /h/ is preceded by /@/
-        phones = word.strip('-').split('-')
+        phones = word.strip(' ').strip('-').split('-')
         trans = ''
 
         selected_phones = ['a', 'e', 'ae', 'o', '@']
@@ -130,7 +130,7 @@ class Schwa_Analysis:
         return trans
 
     def rule_four(self, word):
-        phones = word.strip('-').split('-')
+        phones = word.strip(' ').strip('-').split('-')
         trans = ''
     
         for i in range(len(phones)):
@@ -153,7 +153,7 @@ class Schwa_Analysis:
         return trans
 
     def rule_five(self, word):
-        phones = word.strip('-').split('-')
+        phones = word.strip(' ').strip('-').split('-')
         trans = ''
 
         selected_phones = ['r', 'b', 't', 'd']
@@ -176,7 +176,7 @@ class Schwa_Analysis:
         return trans
 
     def rule_six(self, word):
-        phones = word.strip('-').split('-')
+        phones = word.strip(' ').strip('-').split('-')
         trans = ''
 
         selected_phrases = ['yi', 'wu']
@@ -197,7 +197,7 @@ class Schwa_Analysis:
         return trans
 
     def rule_seven(self, word):
-        phones = word.strip('-').split('-')
+        phones = word.strip(' ').strip('-').split('-')
         trans = ''
 
         for i in range(len(phones)):
@@ -226,7 +226,7 @@ class Schwa_Analysis:
         # /kal@h(u|i)/->/k@l@h(u|i)/
         # /kal@/->/k@l@/
 
-        phones = word.split('-')
+        phones = word.strip(' ').strip('-').split('-')
         trans = ''
 
         first_set = ['a:', 'e:', 'o:']
@@ -280,11 +280,11 @@ def shewa_analyse(word):
     translit_word = sa.rule_seven(translit_word)
 
     translit_word = sa.rule_eight(translit_word)
-
+  
     return translit_word.strip('-').strip()
 
 
-print(shewa_analyse('ae-d-w-e-n-c^-@-r-s-'))
+
 
 
 			

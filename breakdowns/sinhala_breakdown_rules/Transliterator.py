@@ -1,3 +1,4 @@
+
 class Transliterator:
     line = ""
     enter = ['\r', '\n']
@@ -80,8 +81,9 @@ class Transliterator:
         str3 = ""
         
         f2.close()
-
-        return str2
+      
+        rtn_word = str2.strip('-')
+        return rtn_word
 
 
         
@@ -96,5 +98,5 @@ class Node:
         print("self.cat")
         print(self.cat)
 
-y = Transliterator()
-print(y.encoder("කනවා"))
+
+

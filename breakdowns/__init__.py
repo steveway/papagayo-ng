@@ -13,3 +13,4 @@ from . import spanish_breakdown
 from . import swedish_breakdown
 from . import turkish_breakdown
 from . import ukrainian_breakdown
+from . import sinhala_breakdown
