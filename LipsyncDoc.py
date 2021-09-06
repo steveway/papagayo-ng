@@ -627,14 +627,14 @@ class LipSyncObject(NodeMixin):
                     pass
         out_file.close()
 
-    def export_json(self, path):
+    def export_json(self, path, sound_path=""):
         if len(self.children) > 0:
             start_frame = self.children[0].start_frame
             end_frame = self.children[-1].end_frame
         else:  # No phrases means no data, so do nothing
             return
         json_data = {"name": self.name, "start_frame": start_frame, "end_frame": end_frame,
-                     "text": self.text, "num_children": self.num_children, "fps": self.fps}
+                     "text": self.text, "num_children": self.num_children, "fps": self.fps, "sound_path": sound_path}
         list_of_phrases = []
         list_of_used_phonemes = []
         for phr_id, phrase in enumerate(self.children):

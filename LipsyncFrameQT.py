@@ -1020,7 +1020,7 @@ class LipsyncFrame:
                 elif exporter == "Images":
                     self.doc.current_voice.export_images(file_path, self.main_window.mouth_choice.currentText())
                 elif exporter == "JSON":
-                    self.doc.current_voice.export_json(file_path)
+                    self.doc.current_voice.export_json(file_path, self.doc.soundPath)
 
     def on_sel_voice_tab(self, e):
         if not self.doc:

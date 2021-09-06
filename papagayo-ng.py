@@ -100,9 +100,9 @@ def parse_cli():
                         if args.output_file:
                             if os.path.isdir(args.output_file):
                                 voice_file_path = os.path.join(args.output_file, "{}.json".format(voice.name))
-                                voice.export_json(voice_file_path)
+                                voice.export_json(voice_file_path, i.soundPath)
                             else:
-                                voice.export_json(args.output_file)
+                                voice.export_json(args.output_file, i.soundPath)
                 elif args.output_type.upper() == "IMAGES":
                     for voice in i.project_node.children:
                         if args.output_file:
