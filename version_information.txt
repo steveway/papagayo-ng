@@ -1,4 +1,4 @@
-Version: 1.6.5.0
+Version: 1.6.6.0
 CompanyName: Morevna Project
 FileDescription: Lip-Sync Software
 InternalName: Papagayo-NG
