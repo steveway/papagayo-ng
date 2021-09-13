@@ -220,14 +220,48 @@
       <enum>QFrame::Plain</enum>
      </property>
      <property name="currentIndex">
-      <number>2</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="general">
       <layout class="QGridLayout" name="gridLayout_2">
+       <item row="3" column="1">
+        <widget class="QComboBox" name="ui_language">
+         <property name="currentText">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_7">
+         <property name="text">
+          <string>Show Rest Frames after Words</string>
+         </property>
+        </widget>
+       </item>
        <item row="1" column="1">
-        <widget class="QCheckBox" name="hold_phonemes">
+        <widget class="QCheckBox" name="rest_after_words">
          <property name="text">
           <string>Enable</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="label_8">
+         <property name="text">
+          <string>Language (needs restart to apply)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QSpinBox" name="fps_value">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>999</number>
+         </property>
+         <property name="value">
+          <number>24</number>
          </property>
         </widget>
        </item>
@@ -247,37 +281,17 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="1">
-        <widget class="QSpinBox" name="fps_value">
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>999</number>
-         </property>
-         <property name="value">
-          <number>24</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="label_7">
-         <property name="text">
-          <string>Hold Phonemes during playback</string>
-         </property>
-        </widget>
-       </item>
        <item row="2" column="0">
-        <widget class="QLabel" name="label_8">
+        <widget class="QLabel" name="label_12">
          <property name="text">
-          <string>Language (needs restart to apply)</string>
+          <string>Show Rest Frames after Phonemes</string>
          </property>
         </widget>
        </item>
        <item row="2" column="1">
-        <widget class="QComboBox" name="ui_language">
-         <property name="currentText">
-          <string/>
+        <widget class="QCheckBox" name="rest_after_phonemes">
+         <property name="text">
+          <string>Enable</string>
          </property>
         </widget>
        </item>

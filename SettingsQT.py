@@ -159,10 +159,14 @@ class SettingsWindow:
         self.main_window.ui_language.addItems(language_list)
         lang_index = self.main_window.ui_language.findText(self.settings.value("language", "en_us"))
         self.main_window.ui_language.setCurrentIndex(lang_index)
-        if str(self.settings.value("RepeatLastPhoneme", "true")).lower() == "true":
-            self.main_window.hold_phonemes.setChecked(True)
+        if str(self.settings.value("rest_after_words", "true")).lower() == "true":
+            self.main_window.rest_after_words.setChecked(True)
         else:
-            self.main_window.hold_phonemes.setChecked(False)
+            self.main_window.rest_after_words.setChecked(False)
+        if str(self.settings.value("rest_after_phonemes", "true")).lower() == "true":
+            self.main_window.rest_after_phonemes.setChecked(True)
+        else:
+            self.main_window.rest_after_phonemes.setChecked(False)
         recog_index = self.main_window.selected_recognizer.findText(self.settings.value("/VoiceRecognition/recognizer", "Allosaurus"))
         self.main_window.selected_recognizer.setCurrentIndex(recog_index)
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
@@ -195,7 +199,8 @@ class SettingsWindow:
         self.settings.setValue("/VoiceRecognition/run_voice_recognition", bool(self.main_window.run_voice_recognition.isChecked()))
         self.settings.setValue("qss_file_path", str(self.main_window.qss_path.text()))
         self.settings.setValue("/VoiceRecognition/recognizer", self.main_window.selected_recognizer.currentText())
-        self.settings.setValue("RepeatLastPhoneme", bool(self.main_window.hold_phonemes.isChecked()))
+        self.settings.setValue("rest_after_words", bool(self.main_window.rest_after_words.isChecked()))
+        self.settings.setValue("rest_after_phonemes", bool(self.main_window.rest_after_phonemes.isChecked()))
         self.settings.setValue("language", self.main_window.ui_language.currentText())
         self.settings.setValue("/VoiceRecognition/allosaurus_model", self.main_window.model_name.text())
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):

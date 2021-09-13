@@ -275,13 +275,19 @@ class LipSyncObject(NodeMixin):
                     self.last_returned_frame = descendant.text
                     return descendant.text
 
-        if not self.config.value("RepeatLastPhoneme", True):
+        if str(self.config.value("rest_after_words", True)).lower() == "true":
             if not self.frame_is_in_word(frame):
                 return "rest"
             else:
-                return self.last_returned_frame
+                if str(self.config.value("rest_after_phonemes", True)).lower() == "true":
+                    return "rest"
+                else:
+                    return self.last_returned_frame
         else:
-            return self.last_returned_frame
+            if str(self.config.value("rest_after_phonemes", True)).lower() == "true":
+                return "rest"
+            else:
+                return self.last_returned_frame
 
     def frame_is_in_word(self, frame):
         is_in_word = False
