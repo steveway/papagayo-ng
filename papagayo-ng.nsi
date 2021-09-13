@@ -3,14 +3,18 @@ Unicode true
 OutFile "..\papagayo-ng_installer.exe"
 InstallDir "$PROGRAMFILES\Papagayo-NG"
 
-Name "Papagayo-NG"
+!getdllversion ".\papagayo-ng.exe" papagayo_version_
+!echo "papagayo.exe version is ${papagayo_version_1}.${papagayo_version_2}.${papagayo_version_3}.${papagayo_version_4}"
 
-InstallDirRegKey HKLM "Software\Papagayo-NG" "Path"
+!define Name "Papagayo-NG${papagayo_version_1}.${papagayo_version_2}.${papagayo_version_3}.${papagayo_version_4}"
+Name "${Name}"
+
+InstallDirRegKey HKLM "Software\$(^Name)" "Path"
 
 SetCompressor /final lzma
 !include MUI2.nsh
 !include "LogicLib.nsh"
-!define MUI_PAGE_HEADER_TEXT "Papagayo-NG"
+!define MUI_PAGE_HEADER_TEXT "$(^Name)"
 
 !define MUI_ICON ".\papagayo-ng.ico"
 !define MUI_HEADERIMAGE
