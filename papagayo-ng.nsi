@@ -40,7 +40,19 @@ LicenseData "..\nsis_extra_files\gpl.txt"
 !insertmacro MUI_LANGUAGE "English"
 
 Section "Papagayo-NG (required)"
-  SectionIn RO  
+  ; Check to see if already installed
+    ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" "UninstallString"
+      IfFileExists $R0 +1 NotInstalled
+      MessageBox MB_YESNO "$(^Name) is already installed. Uninstall the existing version?" /SD IDYES IDNO Quit
+        Pop $R1
+      StrCmp $R1 2 Quit +1
+      Exec $R0
+    Quit:
+      Quit
+
+    NotInstalled:
+
+  SectionIn RO
   WriteRegStr HKLM "Software\$(^Name)" "Path" "$INSTDIR"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" "DisplayName" "$(^Name)"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$(^Name)" "UninstallString" "$INSTDIR\uninstall.exe"
