@@ -321,6 +321,13 @@
                  </widget>
                 </item>
                 <item>
+                 <widget class="QCheckBox" name="apply_rest_frames_on_export">
+                  <property name="text">
+                   <string>Apply Rest Frame Settings on Export</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
                  <spacer name="export_spacer_right">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>

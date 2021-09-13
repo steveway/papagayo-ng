@@ -1014,13 +1014,13 @@ class LipsyncFrame:
             if file_path:
                 self.config.setValue("WorkingDir", os.path.dirname(file_path))
                 if exporter == "MOHO":
-                    self.doc.current_voice.export(file_path if ("." in file_path) else file_path + ".dat")
+                    self.doc.current_voice.export(file_path if ("." in file_path) else file_path + ".dat", self.main_window.apply_rest_frames_on_export.isChecked())
                 elif exporter == "ALELO":
-                    self.doc.current_voice.export_alelo(file_path, language, self.langman)
+                    self.doc.current_voice.export_alelo(file_path, language, self.langman, self.main_window.apply_rest_frames_on_export.isChecked())
                 elif exporter == "Images":
-                    self.doc.current_voice.export_images(file_path, self.main_window.mouth_choice.currentText())
+                    self.doc.current_voice.export_images(file_path, self.main_window.mouth_choice.currentText(), self.main_window.apply_rest_frames_on_export.isChecked())
                 elif exporter == "JSON":
-                    self.doc.current_voice.export_json(file_path, self.doc.soundPath)
+                    self.doc.current_voice.export_json(file_path, self.doc.soundPath, self.main_window.apply_rest_frames_on_export.isChecked())
 
     def on_sel_voice_tab(self, e):
         if not self.doc:

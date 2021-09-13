@@ -12,7 +12,9 @@ from utilities import *
 from utilities import which
 
 ffi = FFI()
-
+import subprocess
+if utilities.main_is_frozen():
+    subprocess.STARTUPINFO().dwFlags |= subprocess.STARTF_USESHOWWINDOW
 try:
     from pydub import AudioSegment
     from pydub.utils import make_chunks

@@ -548,7 +548,7 @@ class LipSyncObject(NodeMixin):
 
     ###
 
-    def export(self, path):
+    def export(self, path, use_rest_frame_settings=False):
 
         out_file = open(path, 'w')
         out_file.write("MohoSwitch1\n")
@@ -573,7 +573,7 @@ class LipSyncObject(NodeMixin):
         out_file.write("{:d} {}\n".format(end_frame + 2, "rest"))
         out_file.close()
 
-    def export_images(self, path, currentmouth):
+    def export_images(self, path, currentmouth, use_rest_frame_settings=False):
         if not self.config.value("MouthDir"):
             print("Use normal procedure.\n")
             phonemedict = {}
@@ -602,7 +602,7 @@ class LipSyncObject(NodeMixin):
                 except KeyError:
                     print("Phoneme \'{0}\' does not exist in chosen directory.".format(phoneme.text))
 
-    def export_alelo(self, path, language, languagemanager):
+    def export_alelo(self, path, language, languagemanager, use_rest_frame_settings=False):
         out_file = open(path, 'w')
         for phrase in self.children:
             for word in phrase.children:
@@ -645,7 +645,7 @@ class LipSyncObject(NodeMixin):
                     pass
         out_file.close()
 
-    def export_json(self, path, sound_path=""):
+    def export_json(self, path, sound_path="", use_rest_frame_settings=False):
         if len(self.children) > 0:
             start_frame = self.children[0].start_frame
             end_frame = self.children[-1].end_frame

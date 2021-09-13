@@ -10,6 +10,10 @@ import utilities
 
 if utilities.get_app_data_path() not in os.environ['PATH']:
     os.environ['PATH'] += os.pathsep + utilities.get_app_data_path()
+
+import subprocess
+if utilities.main_is_frozen():
+    subprocess.STARTUPINFO().dwFlags |= subprocess.STARTF_USESHOWWINDOW
 import pydub
 from pydub.generators import WhiteNoise
 from PySide2 import QtWidgets

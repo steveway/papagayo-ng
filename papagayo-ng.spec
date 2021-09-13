@@ -102,7 +102,7 @@ else:
               upx=False,
               upx_exclude="qwindows.dll, pyside2.abi3.dll, qtcore.pyd, qtgui.pyd, qtwidgets.pyd, qt5core.dll, qt5gui.dll, qt5svg.dll, qt5widgets.dll, qt5xml.dll",
               runtime_tmpdir=None,
-              console=True )
+              console=False)
 
 installer_folder = "./installer_files"
 if os.path.exists(installer_folder):
