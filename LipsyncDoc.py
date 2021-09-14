@@ -568,6 +568,11 @@ class LipSyncObject(NodeMixin):
                 if phoneme.text == "rest":
                     # export an extra "rest" phoneme at the end of a pause between words or phrases
                     out_file.write("{:d} {}\n".format(phoneme.start_frame, phoneme.text))
+            if use_rest_frame_settings:
+                if str(self.config.value("rest_after_words", True)).lower() == "true":
+                    if last_phoneme.parent != phoneme.parent:
+                        if (last_phoneme.start_frame + 1) < phoneme.start_frame:
+                            out_file.write("{:d} {}\n".format((last_phoneme.start_frame + 2), "rest"))
             last_phoneme = phoneme
             out_file.write("{:d} {}\n".format(phoneme.start_frame + 1, phoneme.text))
         out_file.write("{:d} {}\n".format(end_frame + 2, "rest"))
