@@ -647,9 +647,10 @@ class WaveformView(QtWidgets.QGraphicsView):
         update_rect = self.scene().sceneRect()
         update_rect.setHeight(self.size().height() - 1)
         if self.doc:
-            update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
-            self.setSceneRect(update_rect)
-            self.scene().setSceneRect(update_rect)
+            if self.waveform_polygon:
+                update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
+                self.setSceneRect(update_rect)
+                self.scene().setSceneRect(update_rect)
             # We need to at least update the Y Position of the Phonemes
             font_metrics = QtGui.QFontMetrics(font)
             text_width, top_border = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() * 2
@@ -661,10 +662,46 @@ class WaveformView(QtWidgets.QGraphicsView):
                 self.temp_play_marker.setRect(self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
         except RuntimeError:
             pass  # When changing a file we get a RuntimeError from QT because it deletes the temp_play_marker
-        self.waveform_polygon.resetTransform()  # Change the transform back when resize is finished.
+        if self.waveform_polygon:
+            self.waveform_polygon.resetTransform()  # Change the transform back when resize is finished.
         self.scene().update()
 
     def create_waveform(self, progress_callback):
+        """Similar to the create_waveform method, only this creates a list of chunks."""
+        available_height = int(self.height() / 2)
+        fitted_samples = self.amp * available_height
+        offset = 0
+        list_of_polygons = []
+        complete_width = self.sample_width * len(fitted_samples)
+        chunk_width = self.width() * 2
+        number_of_chunks = math.ceil(complete_width / chunk_width)
+        sample_chunks = np.array_split(fitted_samples, number_of_chunks)
+        for chunk in sample_chunks:
+            temp_polygon = QtGui.QPolygonF()
+            for x, y in enumerate(chunk):
+                temp_polygon.append(QtCore.QPointF(x * self.sample_width, available_height - y + offset))
+                if x < len(chunk):
+                    temp_polygon.append(QtCore.QPointF((x + 1) * self.sample_width, available_height - y + offset))
+            for x, y in enumerate(chunk[::-1]):
+                temp_polygon.append(QtCore.QPointF((len(chunk) - x) * self.sample_width,
+                                                   available_height + y + offset))
+                if x > 0:
+                    temp_polygon.append(QtCore.QPointF((len(chunk) - x - 1) * self.sample_width,
+                                                       available_height + y + offset))
+            list_of_polygons.append(temp_polygon)
+        if self.waveform_polygon:
+            self.waveform_polygon.setPolygon(list_of_polygons[0])
+        else:
+            self.waveform_polygon = self.scene().addPolygon(list_of_polygons[0], QtGui.QColor(
+                self.settings.value("/Graphics/{}".format("wave_line_color"),
+                                    utilities.original_colors["wave_line_color"])),
+                                                            QtGui.QColor(
+                                                                self.settings.value(
+                                                                    "/Graphics/{}".format("wave_fill_color"),
+                                                                    utilities.original_colors["wave_fill_color"])))
+        self.waveform_polygon.setZValue(1)
+
+    def create_waveform_old(self, progress_callback):
         available_height = int(self.height() / 2)
         fitted_samples = self.amp * available_height
         offset = 0  # available_height / 2
