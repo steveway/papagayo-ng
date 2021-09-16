@@ -359,6 +359,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.doc = None
         self.currently_selected_object = None
         self.is_scrubbing = False
+        self.number_of_chunks = 1
         self.cur_frame = 0
         self.old_frame = 0
         self.default_sample_width = default_sample_width
@@ -651,6 +652,7 @@ class WaveformView(QtWidgets.QGraphicsView):
                 update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
                 self.setSceneRect(update_rect)
                 self.scene().setSceneRect(update_rect)
+                self.set_scene_size()
             # We need to at least update the Y Position of the Phonemes
             font_metrics = QtGui.QFontMetrics(font)
             text_width, top_border = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() * 2
@@ -673,9 +675,11 @@ class WaveformView(QtWidgets.QGraphicsView):
         offset = 0
         list_of_polygons = []
         complete_width = self.sample_width * len(fitted_samples)
-        chunk_width = self.width() * 2
-        number_of_chunks = math.ceil(complete_width / chunk_width)
-        sample_chunks = np.array_split(fitted_samples, number_of_chunks)
+        print("ChunkWidth: {}".format(self.viewport().geometry().width()))
+        print(self.scene().width())
+        chunk_width = self.viewport().geometry().width()
+        self.number_of_chunks = math.floor(complete_width / chunk_width) or 1
+        sample_chunks = np.array_split(fitted_samples, self.number_of_chunks)
         for chunk in sample_chunks:
             temp_polygon = QtGui.QPolygonF()
             for x, y in enumerate(chunk):
@@ -875,8 +879,18 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.threadpool.waitForDone()
 
     def recalc_finished(self):
+        self.set_scene_size()
         self.main_window.lip_sync_frame.status_progress.hide()
         self.start_create_waveform()
+
+    def get_scene_size(self):
+        return self.list_of_lines[-1].x1() + self.frame_width
+
+    def set_scene_size(self):
+        scene_rect = self.scene().sceneRect()
+        scene_rect.setWidth(self.get_scene_size())
+        self.scene().setSceneRect(scene_rect)
+        self.setSceneRect(scene_rect)
 
     def recalc_waveform(self, progress_callback):
         duration = self.doc.sound.Duration()
@@ -929,6 +943,7 @@ class WaveformView(QtWidgets.QGraphicsView):
 
     def on_slider_change(self, value):
         self.scroll_position = value
+        print(self.scroll_position)  # This is the sceneposition, left side.
 
     def wheelEvent(self, event):
         self.scroll_position = self.horizontalScrollBar().value() + (event.delta() / 1.2)
@@ -949,6 +964,7 @@ class WaveformView(QtWidgets.QGraphicsView):
             update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
             self.setSceneRect(update_rect)
             self.scene().setSceneRect(update_rect)
+            self.set_scene_size()
             origin_x, origin_y = 0, 0
             height_factor = height_factor * self.waveform_polygon.transform().m22()  # We need to add the factors
             self.waveform_polygon.setTransform(QtGui.QTransform().translate(
@@ -984,6 +1000,7 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.scene().setSceneRect(self.scene().sceneRect().x(), self.scene().sceneRect().y(),
                                       self.sceneRect().width() * 2, self.scene().sceneRect().height())
             self.setSceneRect(self.scene().sceneRect())
+            self.set_scene_size()
             self.scroll_position *= 2
             self.horizontalScrollBar().setValue(self.scroll_position)
             self.start_create_waveform()
@@ -1002,6 +1019,7 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.scene().setSceneRect(self.scene().sceneRect().x(), self.scene().sceneRect().y(),
                                       self.scene().sceneRect().width() / 2, self.scene().sceneRect().height())
             self.setSceneRect(self.scene().sceneRect())
+            self.set_scene_size()
             self.scroll_position /= 2
             self.horizontalScrollBar().setValue(self.scroll_position)
             self.start_create_waveform()
@@ -1025,6 +1043,7 @@ class WaveformView(QtWidgets.QGraphicsView):
                 self.scene().setSceneRect(self.scene().sceneRect().x(), self.scene().sceneRect().y(),
                                           self.scene().sceneRect().width() / factor, self.scene().sceneRect().height())
                 self.setSceneRect(self.scene().sceneRect())
+                self.set_scene_size()
                 self.horizontalScrollBar().setValue(self.scroll_position)
                 self.start_create_waveform()
 
