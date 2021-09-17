@@ -892,6 +892,7 @@ class LipsyncFrame:
             self.main_window.statusbar.showMessage(self.translator.translate("LipsyncFrame", "Stopped"))
             self.main_window.waveform_view.horizontalScrollBar().setValue(
                 self.main_window.waveform_view.scroll_position)
+            self.main_window.waveform_view.update_waveform()
             self.main_window.waveform_view.update()
             QtCore.QCoreApplication.processEvents()
 

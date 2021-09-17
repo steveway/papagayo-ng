@@ -360,6 +360,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.currently_selected_object = None
         self.is_scrubbing = False
         self.number_of_chunks = 1
+        self.list_of_polygons = []
         self.cur_frame = 0
         self.old_frame = 0
         self.default_sample_width = default_sample_width
@@ -582,6 +583,7 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.temp_play_marker.setVisible(True)
         self.centerOn(self.temp_play_marker)
         self.temp_play_marker.setPos(frame * self.frame_width, 0)
+        self.update_waveform()
         self.update()
         self.scene().update()
 
@@ -648,8 +650,10 @@ class WaveformView(QtWidgets.QGraphicsView):
         update_rect = self.scene().sceneRect()
         update_rect.setHeight(self.size().height() - 1)
         if self.doc:
-            if self.waveform_polygon:
-                update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
+            if self.list_of_polygons:
+                self.update_waveform()
+                update_rect.setWidth(self.viewport().width())
+                # update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
                 self.setSceneRect(update_rect)
                 self.scene().setSceneRect(update_rect)
                 self.set_scene_size()
@@ -664,8 +668,10 @@ class WaveformView(QtWidgets.QGraphicsView):
                 self.temp_play_marker.setRect(self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
         except RuntimeError:
             pass  # When changing a file we get a RuntimeError from QT because it deletes the temp_play_marker
-        if self.waveform_polygon:
-            self.waveform_polygon.resetTransform()  # Change the transform back when resize is finished.
+        if self.list_of_polygons:
+            for polygon in self.scene().items():
+                if isinstance(polygon, QtWidgets.QGraphicsPolygonItem):
+                    polygon.resetTransform()
         self.scene().update()
 
     def create_waveform(self, progress_callback):
@@ -673,37 +679,76 @@ class WaveformView(QtWidgets.QGraphicsView):
         available_height = int(self.height() / 2)
         fitted_samples = self.amp * available_height
         offset = 0
-        list_of_polygons = []
+        self.list_of_polygons = []
         complete_width = self.sample_width * len(fitted_samples)
         print("ChunkWidth: {}".format(self.viewport().geometry().width()))
         print(self.scene().width())
         chunk_width = self.viewport().geometry().width()
-        self.number_of_chunks = math.floor(complete_width / chunk_width) or 1
+        #self.number_of_chunks = math.floor(complete_width / chunk_width) or 1
+        self.number_of_chunks = math.floor(self.scene().width() / self.viewport().width()) or 1
         sample_chunks = np.array_split(fitted_samples, self.number_of_chunks)
+        x_offset = 0
         for chunk in sample_chunks:
             temp_polygon = QtGui.QPolygonF()
             for x, y in enumerate(chunk):
-                temp_polygon.append(QtCore.QPointF(x * self.sample_width, available_height - y + offset))
+                temp_polygon.append(QtCore.QPointF((x + x_offset) * self.sample_width, available_height - y + offset))
                 if x < len(chunk):
-                    temp_polygon.append(QtCore.QPointF((x + 1) * self.sample_width, available_height - y + offset))
+                    temp_polygon.append(QtCore.QPointF(((x + x_offset) + 1) * self.sample_width, available_height - y + offset))
+
             for x, y in enumerate(chunk[::-1]):
-                temp_polygon.append(QtCore.QPointF((len(chunk) - x) * self.sample_width,
+                temp_polygon.append(QtCore.QPointF(((x_offset + len(chunk)) - x) * self.sample_width,
                                                    available_height + y + offset))
                 if x > 0:
-                    temp_polygon.append(QtCore.QPointF((len(chunk) - x - 1) * self.sample_width,
+                    temp_polygon.append(QtCore.QPointF(((x_offset + len(chunk)) - x - 1) * self.sample_width,
                                                        available_height + y + offset))
-            list_of_polygons.append(temp_polygon)
-        if self.waveform_polygon:
-            self.waveform_polygon.setPolygon(list_of_polygons[0])
+            self.list_of_polygons.append(temp_polygon)
+            x_offset += len(chunk)
+            print(x_offset)
+        # if self.waveform_polygon:
+        #     self.waveform_polygon.setPolygon(self.list_of_polygons[0])
+        # else:
+        #     self.waveform_polygon = self.scene().addPolygon(self.list_of_polygons[0], QtGui.QColor(
+        #         self.settings.value("/Graphics/{}".format("wave_line_color"),
+        #                             utilities.original_colors["wave_line_color"])),
+        #                                                     QtGui.QColor(
+        #                                                         self.settings.value(
+        #                                                             "/Graphics/{}".format("wave_fill_color"),
+        #                                                             utilities.original_colors["wave_fill_color"])))
+        # self.waveform_polygon.setZValue(1)
+
+    def update_waveform(self):
+        visible_waveform_parts = []
+        start_x = self.horizontalScrollBar().value()
+        end_x = start_x + self.viewport().width()
+        visible_rect = QtCore.QRectF(start_x, 0, end_x, self.height())
+        scene_width = self.scene().width()
+        first_item = math.floor(scene_width / end_x)
+        if start_x > 0:
+            last_item = math.floor(scene_width / start_x)
         else:
-            self.waveform_polygon = self.scene().addPolygon(list_of_polygons[0], QtGui.QColor(
+            last_item = 1
+        #visible_waveform_parts = self.list_of_polygons[last_item:first_item]
+        for waveform_polygon in self.list_of_polygons:
+            if visible_rect.intersects(waveform_polygon.boundingRect()):
+                visible_waveform_parts.append(waveform_polygon)
+            if len(visible_waveform_parts) > 1:
+                break  # No more than 2 chunks should be possibly visible, so we break early here.
+        print(visible_waveform_parts)
+        for g_object in self.scene().items():
+            if isinstance(g_object, QtWidgets.QGraphicsPolygonItem):
+                if g_object.polygon() not in visible_waveform_parts:
+                    self.scene().removeItem(g_object)
+                    print("Polygon removed from Scene: {}".format(g_object))
+        for waveform_polygon in visible_waveform_parts:
+            temp = self.scene().addPolygon(waveform_polygon, QtGui.QColor(
                 self.settings.value("/Graphics/{}".format("wave_line_color"),
                                     utilities.original_colors["wave_line_color"])),
                                                             QtGui.QColor(
                                                                 self.settings.value(
                                                                     "/Graphics/{}".format("wave_fill_color"),
                                                                     utilities.original_colors["wave_fill_color"])))
-        self.waveform_polygon.setZValue(1)
+            temp.setZValue(1)
+            print("Polygon added to Scene: {}".format(temp))
 
     def create_waveform_old(self, progress_callback):
         available_height = int(self.height() / 2)
@@ -884,6 +929,8 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.start_create_waveform()
 
     def get_scene_size(self):
+        if not self.list_of_lines:
+            self.update()
         return self.list_of_lines[-1].x1() + self.frame_width
 
     def set_scene_size(self):
@@ -912,6 +959,7 @@ class WaveformView(QtWidgets.QGraphicsView):
             if document != self.doc or clear_scene:
                 self.scene().clear()
                 self.waveform_polygon = None
+                self.list_of_polygons = []
             self.doc = document
             if (self.doc is not None) and (self.doc.sound is not None):
                 for l_object in self.doc.project_node.descendants:
@@ -940,35 +988,40 @@ class WaveformView(QtWidgets.QGraphicsView):
                     self.temp_play_marker.setVisible(False)
                 self.setViewportUpdateMode(QtWidgets.QGraphicsView.FullViewportUpdate)
                 self.scene().update()
+                self.update_waveform()
 
     def on_slider_change(self, value):
         self.scroll_position = value
+        self.update_waveform()
         print(self.scroll_position)  # This is the sceneposition, left side.
 
     def wheelEvent(self, event):
         self.scroll_position = self.horizontalScrollBar().value() + (event.delta() / 1.2)
         self.horizontalScrollBar().setValue(self.scroll_position)
+        self.update_waveform()
 
     def resize_finished(self):
         self.start_create_waveform()
+        self.update_waveform()
 
     def resizeEvent(self, event):
         update_rect = self.scene().sceneRect()
         width_factor = 1  # Only the height needs to change.
-        try:
-            height_factor = event.size().height() / event.oldSize().height()
-        except ZeroDivisionError:
-            height_factor = 1
         update_rect.setHeight(event.size().height())
         if self.doc:
-            update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
+            # update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
             self.setSceneRect(update_rect)
             self.scene().setSceneRect(update_rect)
             self.set_scene_size()
             origin_x, origin_y = 0, 0
-            height_factor = height_factor * self.waveform_polygon.transform().m22()  # We need to add the factors
-            self.waveform_polygon.setTransform(QtGui.QTransform().translate(
-                origin_x, origin_y).scale(width_factor, height_factor).translate(-origin_x, -origin_y))
+            for polygon in self.scene().items():
+                if isinstance(polygon, QtWidgets.QGraphicsPolygonItem):
+                    try:
+                        height_factor = event.size().height() / event.oldSize().height()
+                    except ZeroDivisionError:
+                        height_factor = 1
+                    height_factor = height_factor * polygon.transform().m22()  # We need to add the factors
+                    polygon.setTransform(QtGui.QTransform().translate(origin_x, origin_y).scale(width_factor, height_factor).translate(-origin_x, -origin_y))
             # We need to at least update the Y Position of the Phonemes
             font_metrics = QtGui.QFontMetrics(font)
             text_width, top_border = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() * 2
@@ -1004,6 +1057,7 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.scroll_position *= 2
             self.horizontalScrollBar().setValue(self.scroll_position)
             self.start_create_waveform()
+            self.update_waveform()
 
     def on_zoom_out(self, event=None):
         if (self.doc is not None) and (self.samples_per_frame > 1):
@@ -1023,6 +1077,7 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.scroll_position /= 2
             self.horizontalScrollBar().setValue(self.scroll_position)
             self.start_create_waveform()
+            self.update_waveform()
 
     def on_zoom_reset(self, event=None):
         if self.doc is not None:
@@ -1046,5 +1101,6 @@ class WaveformView(QtWidgets.QGraphicsView):
                 self.set_scene_size()
                 self.horizontalScrollBar().setValue(self.scroll_position)
                 self.start_create_waveform()
+                self.update_waveform()
 
 # end of class WaveformView
