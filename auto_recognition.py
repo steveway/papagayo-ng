@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import string
 import tempfile
@@ -115,16 +116,16 @@ class AutoRecognize:
                 start, dur, phone = line.split()
                 phone = "".join(e for e in phone if e not in stress_symbols)
                 if phone not in ipa_convert:
-                    print("Missing conversion for: " + phone)
-                    if self.main_window:
-                        dlg = QtWidgets.QMessageBox()
-                        dlg.setText("Missing conversion for: " + phone)
-                        dlg.setWindowTitle("Missing Phoneme Conversion")
-                        dlg.setWindowIcon(self.main_window.windowIcon())
-                        dlg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-                        dlg.setDefaultButton(QtWidgets.QMessageBox.Ok)
-                        dlg.setIcon(QtWidgets.QMessageBox.Information)
-                        dlg.exec_()
+                    logging.info("Missing conversion for: " + phone)
+                    # if self.main_window:
+                    #     dlg = QtWidgets.QMessageBox()
+                    #     dlg.setText("Missing conversion for: " + phone)
+                    #     dlg.setWindowTitle("Missing Phoneme Conversion")
+                    #     dlg.setWindowIcon(self.main_window.windowIcon())
+                    #     dlg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+                    #     dlg.setDefaultButton(QtWidgets.QMessageBox.Ok)
+                    #     dlg.setIcon(QtWidgets.QMessageBox.Information)
+                    #     dlg.exec_()
 
                 phone_dict = {"start": float(start), "duration": float(dur), "phoneme": ipa_convert.get(phone)}
                 time_list.append(float(start) - prev_start)

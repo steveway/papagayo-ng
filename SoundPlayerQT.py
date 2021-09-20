@@ -1,7 +1,7 @@
 from PySide2 import QtWidgets
 
-from utilities import *
-
+import utilities
+import logging
 import time
 
 from PySide2.QtMultimedia import QMediaPlayer, QAudioFormat, QAudioBuffer, QAudioDecoder
@@ -9,7 +9,6 @@ from PySide2.QtMultimedia import QAudioOutput
 from PySide2.QtCore import QCoreApplication
 from PySide2.QtCore import QUrl
 
-from utilities import which
 from cffi import FFI
 
 ffi = FFI()
@@ -61,8 +60,6 @@ class SoundPlayer:
         self.np_data = np.array(self.only_samples)
         if not self.signed:  # don't ask me why this fixes 8 bit samples...
             self.np_data = self.np_data - self.max_bits / 2
-        print(len(self.only_samples))
-        print(self.max_bits)
         self.isvalid = True
 
     def audioformat_to_datatype(self, audioformat):
@@ -99,7 +96,7 @@ class SoundPlayer:
         self.is_loaded = True
 
     def get_audio_buffer(self, bufferdata):
-        print(bufferdata)
+        logging.info(bufferdata)
 
     def IsValid(self):
         return self.isvalid

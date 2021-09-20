@@ -1,4 +1,5 @@
 import audioop
+import logging
 import platform
 import time
 import utilities
@@ -14,9 +15,6 @@ from PySide2.QtCore import QCoreApplication
 from PySide2.QtCore import QUrl
 from PySide2.QtMultimedia import QMediaPlayer
 from cffi import FFI
-
-from utilities import *
-from utilities import which
 
 ffi = FFI()
 
@@ -53,10 +51,10 @@ class SoundPlayer:
         self.isvalid = True
         self.pydubfile = None
         if AudioSegment:
-            if which("ffmpeg") is not None:
-                AudioSegment.converter = which("ffmpeg")
-            elif which("avconv") is not None:
-                AudioSegment.converter = which("avconv")
+            if utilities.which("ffmpeg") is not None:
+                AudioSegment.converter = utilities.which("ffmpeg")
+            elif utilities.which("avconv") is not None:
+                AudioSegment.converter = utilities.which("avconv")
             else:
                 if platform.system() == "Windows":
                     AudioSegment.converter = os.path.join(utilities.get_app_data_path(), "ffmpeg.exe")
@@ -70,12 +68,11 @@ class SoundPlayer:
         # self.audio.play()
 
     def on_durationChanged(self, duration):
-        print("Changed!")
-        print(duration)
+        logging.info("Duration changed to {}!".format(duration))
         self.is_loaded = True
 
     def get_audio_buffer(self, bufferdata):
-        print(bufferdata)
+        logging.info(bufferdata)
 
     def IsValid(self):
         return self.isvalid
@@ -122,7 +119,7 @@ class SoundPlayer:
         self.audio.play()
 
     def play_segment(self, start, length):
-        print("Playing Segment")
+        logging.info("Playing Segment")
         if not self.isplaying:  # otherwise this gets kinda echo-y
             self.isplaying = True
             self.audio.setPosition(start * 1000.0)
@@ -133,14 +130,10 @@ class SoundPlayer:
         start = newstart * 1000.0
         length = newlength * 1000.0
         end = start + length
-        print(start)
-        print(length)
-        print(end)
         while self.audio.position() < end:
             if not self.isplaying:
                 return 0
             QCoreApplication.processEvents()
-            print(self.audio.position())
             time.sleep(0.001)
         self.audio.stop()
         self.isplaying = False

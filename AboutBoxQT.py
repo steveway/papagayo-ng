@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+import os
 
 import PySide2.QtCore as QtCore
 import PySide2.QtGui as QtGui
@@ -31,7 +32,6 @@ from PySide2.QtUiTools import QUiLoader as uic
 from PySide2.QtCore import QFile
 
 import utilities
-from utilities import *
 
 
 class AboutBox:
@@ -39,9 +39,8 @@ class AboutBox:
         self.loader = None
         self.ui = None
         self.ui_file = None
-        print(os.path.join(get_main_dir(), "rsrc", "about_box.ui"))
-        self.main_window = self.load_ui_widget(os.path.join(get_main_dir(), "rsrc", "about_box.ui"))
-        self.main_window.setWindowIcon(QtGui.QIcon(os.path.join(get_main_dir(), "rsrc", "window_icon.bmp")))
+        self.main_window = self.load_ui_widget(os.path.join(utilities.get_main_dir(), "rsrc", "about_box.ui"))
+        self.main_window.setWindowIcon(QtGui.QIcon(os.path.join(utilities.get_main_dir(), "rsrc", "window_icon.bmp")))
         self.main_window.about_ok_button.clicked.connect(self.close)
         self.main_window.license.anchorClicked.connect(self.open_license)
         self.main_window.license_version.setText("Version: {}".format(self.get_version_from_yaml()))
@@ -57,7 +56,7 @@ class AboutBox:
 
     def open_license(self, event):
         if event.toString() == "gpl.html":
-            license_path = QtCore.QUrl("file:///{}".format(os.path.join(get_main_dir(), "rsrc", "gpl.html")))
+            license_path = QtCore.QUrl("file:///{}".format(os.path.join(utilities.get_main_dir(), "rsrc", "gpl.html")))
             QtGui.QDesktopServices.openUrl(license_path)
         else:
             QtGui.QDesktopServices.openUrl(event)

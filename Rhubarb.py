@@ -1,4 +1,5 @@
 import json
+import logging
 import subprocess
 import os
 import threading
@@ -76,7 +77,7 @@ class Rhubarb:
         self.top_level_widget.lip_sync_frame.status_progress.setMaximum(100)
 
     def _signal_handler(self):
-        print(self.translator.translate("Rhubarb", 'Rhubarb did not respond for more than 30 seconds.'))
+        logging.info(self.translator.translate("Rhubarb", 'Rhubarb did not respond for more than 30 seconds.'))
         raise RhubarbTimeoutException()
 
     def _read_log(self):

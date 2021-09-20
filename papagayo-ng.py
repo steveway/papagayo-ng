@@ -1,17 +1,22 @@
 # --coding: utf-8 --
 import argparse
 import ctypes
+import utilities
+import logging
 import os
 import platform
 import sys
 import papagayongrcc
 import LipsyncFrameQT
 
+
 try:
     import pyi_splash
 except ImportError:
     pyi_splash = None
 
+file_path = os.path.join(utilities.get_app_data_path(), "errorlog.log")
+logging.basicConfig(filename=file_path, encoding='utf-8', level=logging.INFO, format="%(asctime)s:%(funcName)s:%(lineno)d:%(message)s")
 
 class ParentClass:
     def __init__(self):
@@ -71,10 +76,10 @@ def parse_cli():
                         LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.audio_extension_list):
                     list_of_input_files.append(args.input_file_path)
             list_of_input_files = filter(None, list_of_input_files)
-            print("Input Files:")
+            logging.info("Input Files:")
             list_of_doc_objects = []
             for i in list_of_input_files:
-                print(i)
+                logging.info(i)
                 new_doc = LipsyncFrameQT.open_file_no_gui(i, parent)
                 list_of_doc_objects.append(new_doc)
 

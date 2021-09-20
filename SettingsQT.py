@@ -19,15 +19,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+import os
+import platform
 import shutil
 from functools import partial
 
 import PySide2.QtWidgets as QtWidgets
+from PySide2 import QtCore, QtGui
 from PySide2.QtCore import QFile
 from PySide2.QtUiTools import QUiLoader as uic
 
 import utilities
-from utilities import *
 
 
 class SettingsWindow:
@@ -39,7 +41,7 @@ class SettingsWindow:
         #self.translator.load("en_text", utilities.get_main_dir())
         self.ui = None
         self.ui_file = None
-        self.main_window = self.load_ui_widget(os.path.join(get_main_dir(), "rsrc", "settings.ui"))
+        self.main_window = self.load_ui_widget(os.path.join(utilities.get_main_dir(), "rsrc", "settings.ui"))
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
         self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
         self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
@@ -74,16 +76,12 @@ class SettingsWindow:
 
     def change_tab(self, event=None):
         if self.main_window.graphical_2.isChecked():
-            print(self.translator.translate("SettingsWindow", "Graphics"))
             self.main_window.settings_options.setCurrentIndex(1)
         elif self.main_window.general_2.isChecked():
-            print(self.translator.translate("SettingsWindow", "General"))
             self.main_window.settings_options.setCurrentIndex(0)
         elif self.main_window.misc_2.isChecked():
-            print(self.translator.translate("SettingsWindow", "Misc"))
             self.main_window.settings_options.setCurrentIndex(3)
         elif self.main_window.voice_rec.isChecked():
-            print(self.translator.translate("SettingsWindow", "Voice"))
             self.main_window.settings_options.setCurrentIndex(2)
 
     def delete_settings(self, event=None):
@@ -114,8 +112,8 @@ class SettingsWindow:
         if platform.system() == "Darwin":
             ffmpeg_binary = "ffmpeg"
             ffprobe_binary = "ffprobe"
-        ffmpeg_path_old = os.path.join(get_main_dir(), ffmpeg_binary)
-        ffprobe_path_old = os.path.join(get_main_dir(), ffprobe_binary)
+        ffmpeg_path_old = os.path.join(utilities.get_main_dir(), ffmpeg_binary)
+        ffprobe_path_old = os.path.join(utilities.get_main_dir(), ffprobe_binary)
         if os.path.exists(ffmpeg_path_old):
             os.remove(ffmpeg_path_old)
         if os.path.exists(ffprobe_path_old):
@@ -133,7 +131,7 @@ class SettingsWindow:
             shutil.rmtree(rhubarb_path)
 
     def delete_ai_model(self):
-        allosaurus_model_path_old = os.path.join(get_main_dir(), "allosaurus_model")
+        allosaurus_model_path_old = os.path.join(utilities.get_main_dir(), "allosaurus_model")
         allosaurus_model_path_new = os.path.join(utilities.get_app_data_path(), "allosaurus_model")
         if os.path.exists(allosaurus_model_path_old):
             shutil.rmtree(allosaurus_model_path_old)

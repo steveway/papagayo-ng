@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
+import logging
 import math
 import shutil
 import sys
@@ -85,7 +85,7 @@ class LanguageManager:
         try:
             in_file = open(path, 'r')
         except FileNotFoundError:
-            print("Unable to open phoneme dictionary!:{}".format(path))
+            logging.info("Unable to open phoneme dictionary!:{}".format(path))
             return
         new_cmu_version = False
         if in_file.readline().startswith(";;; # CMUdict"):
@@ -152,7 +152,7 @@ class LanguageManager:
                         details["dictionaries"][key] = value
                 self.language_table[label] = details
             else:
-                print("unknown type ignored language not added to table")
+                logging.info("unknown type ignored language not added to table")
 
     def init_languages(self):
         if len(self.language_table) > 0:
@@ -520,7 +520,7 @@ class LipSyncObject(NodeMixin):
                         pronunciation_phoneme = pronunciation_raw[i].rstrip("0123456789")
                         pronunciation.append(phonemeset.conversion[pronunciation_phoneme])
                     except KeyError:
-                        print(("Unknown phoneme:", pronunciation_raw[i], "in word:", text))
+                        logging.info(("Unknown phoneme:", pronunciation_raw[i], "in word:", text))
 
                 for p in pronunciation:
                     if len(p) == 0:
@@ -580,7 +580,7 @@ class LipSyncObject(NodeMixin):
 
     def export_images(self, path, currentmouth, use_rest_frame_settings=False):
         if not self.config.value("MouthDir"):
-            print("Use normal procedure.\n")
+            logging.info("Use normal procedure.\n")
             phonemedict = {}
             for files in os.listdir(os.path.join(utilities.get_main_dir(), "rsrc", "mouths", currentmouth)):
                 phonemedict[os.path.splitext(files)[0]] = os.path.splitext(files)[1]
@@ -591,10 +591,10 @@ class LipSyncObject(NodeMixin):
                                 path + str(phoneme.start_frame).rjust(6, '0') +
                                 phoneme.text + phonemedict[phoneme.text])
                 except KeyError:
-                    print("Phoneme \'{0}\' does not exist in chosen directory.".format(phoneme.text))
+                    logging.info("Phoneme \'{0}\' does not exist in chosen directory.".format(phoneme.text))
 
         else:
-            print("Use this dir: {}\n".format(self.config.value("MouthDir")))
+            logging.info("Use this dir: {}\n".format(self.config.value("MouthDir")))
             phonemedict = {}
             for files in os.listdir(self.config.value("MouthDir")):
                 phonemedict[os.path.splitext(files)[0]] = os.path.splitext(files)[1]
@@ -605,7 +605,7 @@ class LipSyncObject(NodeMixin):
                         "{}{}{}{}".format(path, str(phoneme.start_frame).rjust(6, "0"), phoneme.text,
                                           phonemedict[phoneme.text]))
                 except KeyError:
-                    print("Phoneme \'{0}\' does not exist in chosen directory.".format(phoneme.text))
+                    logging.info("Phoneme \'{0}\' does not exist in chosen directory.".format(phoneme.text))
 
     def export_alelo(self, path, language, languagemanager, use_rest_frame_settings=False):
         out_file = open(path, 'w')
@@ -624,9 +624,7 @@ class LipSyncObject(NodeMixin):
                     pronunciation = languagemanager.raw_dictionary[text]
                 first = True
                 position = -1
-                #               print word.text
                 for phoneme in word.children:
-                    #                   print phoneme.text
                     if first:
                         first = False
                     else:
@@ -791,9 +789,9 @@ class LipsyncDoc:
         if not os.path.isabs(self.soundPath):
             self.soundPath = os.path.normpath("{}/{}".format(os.path.dirname(self.path), self.soundPath))
         self.fps = int(in_file.readline())
-        print(("self.path: {}".format(self.path)))
+        logging.info(("self.path: {}".format(self.path)))
         self.soundDuration = int(in_file.readline())
-        print(("self.soundDuration: {:d}".format(self.soundDuration)))
+        logging.info(("self.soundDuration: {:d}".format(self.soundDuration)))
         self.project_node.sound_duration = self.soundDuration
         num_voices = int(in_file.readline())
         for i in range(num_voices):
@@ -815,14 +813,14 @@ class LipsyncDoc:
         self.soundPath = path  # .encode('latin-1', 'replace')
         self.sound = SoundPlayer.SoundPlayer(self.soundPath, self.parent)
         if self.sound.IsValid():
-            print("valid sound")
+            logging.info("valid sound")
             self.soundDuration = int(self.sound.Duration() * self.fps)
-            print(("self.sound.Duration(): {:d}".format(int(self.sound.Duration()))))
-            print(("frameRate: {:d}".format(int(self.fps))))
-            print(("soundDuration1: {:d}".format(self.soundDuration)))
+            logging.info(("self.sound.Duration(): {:d}".format(int(self.sound.Duration()))))
+            logging.info(("frameRate: {:d}".format(int(self.fps))))
+            logging.info(("soundDuration1: {:d}".format(self.soundDuration)))
             if self.soundDuration < self.sound.Duration() * self.fps:
                 self.soundDuration += 1
-                print(("soundDuration2: {:d}".format(self.soundDuration)))
+                logging.info(("soundDuration2: {:d}".format(self.soundDuration)))
             self.project_node.sound_duration = self.soundDuration
         else:
             self.sound = None
@@ -975,10 +973,8 @@ class LipsyncDoc:
             new_map.load(new_set)
             for conversion_name in new_map.alternate_conversions:
                 if conversion_name.startswith(old_set.lower()):
-                    print(conversion_name)
                     conversion_dict = new_map.alternate_conversions[conversion_name]
             if conversion_dict:
-                print(conversion_dict)
                 for voice in self.project_node.children:
                     for phrase in voice.children:
                         for word in phrase.children:
@@ -1131,5 +1127,5 @@ class PhonemeSet:
                         self.alternate_conversions[key] = json_data[key]
                 return name
         else:
-            print(("Can't find phonemeset! ({})".format(name)))
+            logging.info(("Can't find phonemeset! ({})".format(name)))
             return False

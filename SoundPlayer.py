@@ -1,15 +1,14 @@
 import audioop
+import logging
 import os
 import platform
 import traceback
 import wave
 
 import utilities
-from utilities import *
 import sounddevice as sd
 import time
 
-from utilities import which
 import subprocess
 if utilities.main_is_frozen():
     subprocess.STARTUPINFO().dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -35,10 +34,10 @@ class SoundPlayer:
         self.volume = 100
 
         if AudioSegment:
-            if which("ffmpeg") is not None:
-                AudioSegment.converter = which("ffmpeg")
-            elif which("avconv") is not None:
-                AudioSegment.converter = which("avconv")
+            if utilities.which("ffmpeg") is not None:
+                AudioSegment.converter = utilities.which("ffmpeg")
+            elif utilities.which("avconv") is not None:
+                AudioSegment.converter = utilities.which("avconv")
             else:
                 if platform.system() == "Windows":
                     AudioSegment.converter = os.path.join(utilities.get_app_data_path(), "ffmpeg.exe")
@@ -49,7 +48,7 @@ class SoundPlayer:
 
         try:
             if AudioSegment:
-                print(self.soundfile)
+                logging.info(self.soundfile)
                 self.pydubfile = AudioSegment.from_file(self.soundfile, format=os.path.splitext(self.soundfile)[1][1:])
             else:
                 self.wave_reference = wave.open(self.soundfile)

@@ -23,13 +23,13 @@
 # from utilities import Worker, WorkerSignals
 import importlib
 import json
+import logging
 import shutil
 import sys
 import os
 import tarfile
 import time
 from functools import partial
-from pprint import pprint
 
 from PySide2.QtCore import QFile, QObject
 from PySide2 import QtCore, QtGui, QtWidgets
@@ -112,8 +112,7 @@ def open_file_no_gui(path, parent):
             # open a json based lipsync project
             doc.open_json(path)
         if doc.sound is None:
-            print("Could not load Sound file.")
-            print(doc.soundPath)
+            logging.info("Could not load Sound file: " + doc.soundPath)
             return None
     else:
         # open an audio file
@@ -489,8 +488,6 @@ class LipsyncFrame:
                         progress_callback.emit(percent)
                 if buffer_all:
                     rhubarb_zip = ZipFile(buffer_all)
-                    print(os.path.join(utilities.get_app_data_path(), "rhubarb"))
-                    print(rhubarb_zip.filelist)
                     dirs = list(set([os.path.dirname(x) for x in rhubarb_zip.namelist()]))
                     main_dir = os.path.dirname([os.path.split(x)[0] for x in dirs][0])
                     if os.path.exists(os.path.join(utilities.get_app_data_path(), "rhubarb")):
@@ -620,7 +617,7 @@ class LipsyncFrame:
 
     def apply_changed_fps(self):
         new_fps_value = self.main_window.fps_input.value()
-        print('FPS changed to: {0}'.format(str(new_fps_value)))
+        logging.info('FPS changed to: {0}'.format(str(new_fps_value)))
         old_fps_value = self.doc.fps
         resize_multiplier = new_fps_value / old_fps_value
         if resize_multiplier != 1:
@@ -1133,7 +1130,7 @@ class LipsyncFrame:
                 self.main_window.mouth_view.current_mouth = self.main_window.mouth_choice.currentText()
 
     def on_reload_dictionary(self, event=None):
-        print("reload the dictionary")
+        logging.info("reload the dictionary")
         lang_config = self.doc.language_manager.language_table[self.main_window.language_choice.currentText()]
         self.doc.language_manager.load_language(lang_config, force=True)
 
