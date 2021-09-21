@@ -4,7 +4,6 @@ import platform
 import sys
 import traceback
 import appdirs
-import logging
 
 from PySide2 import QtCore, QtGui
 

@@ -15,8 +15,9 @@ try:
 except ImportError:
     pyi_splash = None
 
-file_path = os.path.join(utilities.get_app_data_path(), "errorlog.log")
+file_path = os.path.join(utilities.get_app_data_path(), "runtime.log")
 logging.basicConfig(filename=file_path, encoding='utf-8', level=logging.INFO, format="%(asctime)s:%(funcName)s:%(lineno)d:%(message)s")
+
 
 class ParentClass:
     def __init__(self):
