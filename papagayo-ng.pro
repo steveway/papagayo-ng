@@ -20,4 +20,5 @@ FORMS += rsrc\papagayo-ng2.ui \
 OTHER_FILES += about_markdown.html
 
 TRANSLATIONS += en_us.ts \
+                fr_fr.ts \
                 de_de.ts

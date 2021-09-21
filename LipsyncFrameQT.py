@@ -134,7 +134,7 @@ class LipsyncFrame:
     def __init__(self):
         QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
 
-        self.app = QtWidgets.QApplication(sys.argv)
+        self.app = QtCore.QCoreApplication.instance()
         self.translator = utilities.ApplicationTranslator()
         self.loader = None
         self.ui_file = None
@@ -848,11 +848,11 @@ class LipsyncFrame:
             self.ffmpeg_action.triggered.connect(lambda: self.start_download(self.download_ffmpeg))
             self.main_window.menubar.addAction(self.ffmpeg_action)
         if not utilities.allosaurus_model_exists():
-            self.model_action = QtWidgets.QAction(self.apptranslator.translate("LipsyncFrame", "Download AI Model"))
+            self.model_action = QtWidgets.QAction(self.translator.translate("LipsyncFrame", "Download AI Model"))
             self.model_action.triggered.connect(lambda: self.start_download(self.download_allosaurus_model))
             self.main_window.menubar.addAction(self.model_action)
         if not utilities.rhubarb_binaries_exists():
-            self.rhubarb_action = QtWidgets.QAction(self.apptranslator.translate("LipsyncFrame", "Download Rhubarb"))
+            self.rhubarb_action = QtWidgets.QAction(self.translator.translate("LipsyncFrame", "Download Rhubarb"))
             self.rhubarb_action.triggered.connect(lambda: self.start_download(self.download_rhubarb))
             self.main_window.menubar.addAction(self.rhubarb_action)
         self.main_window.waveform_view.set_document(self.doc, True, True)

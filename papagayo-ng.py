@@ -1,6 +1,9 @@
 # --coding: utf-8 --
 import argparse
 import ctypes
+
+from PySide2 import QtWidgets
+
 import utilities
 import logging
 import os
@@ -9,14 +12,14 @@ import sys
 import papagayongrcc
 import LipsyncFrameQT
 
-
 try:
     import pyi_splash
 except ImportError:
     pyi_splash = None
 
 file_path = os.path.join(utilities.get_app_data_path(), "runtime.log")
-logging.basicConfig(filename=file_path, encoding='utf-8', level=logging.INFO, format="%(asctime)s:%(funcName)s:%(lineno)d:%(message)s")
+logging.basicConfig(filename=file_path, encoding='utf-8', level=logging.INFO,
+                    format="%(asctime)s:%(funcName)s:%(lineno)d:%(message)s")
 
 
 class ParentClass:
@@ -25,23 +28,30 @@ class ParentClass:
 
 
 def parse_cli():
+    translator = utilities.ApplicationTranslator()
     parser = argparse.ArgumentParser(description="Papagayo-NG LipSync Tool")
     parser.add_argument("-i", dest="input_file_path",
-                        help="The input file, either a supported Papagayo-NG Project or a sound file.", metavar="FILE")
+                        help=translator.translate("CLI",
+                                                  "The input file, either a supported Papagayo-NG Project or a sound file."),
+                        metavar="FILE")
     parser.add_argument("--cli", dest="use_cli", action="store_true", help="Set this to use CLI commands.")
     parser.add_argument("-o", dest="output_file",
-                        help="The output file, should be one of these filetypes or a directory: {}".format(
+                        help=translator.translate("CLI",
+                                                  "The output file, should be one of these filetypes or a directory: {}").format(
                             LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.export_file_types))
-    parser.add_argument("--output-type", dest="output_type", help="Possible options: {}".format(
-        "".join(" {},".format(o_type.upper()) for o_type in
-                LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.exporter_list)[:-1]))
-    parser.add_argument("--language", dest="language", help="Choose the language for Alelo Export.")
-    parser.add_argument("--mouth-images", dest="mouth_image_dir", help="The Directory containing the mouth Images.")
+    parser.add_argument("--output-type", dest="output_type",
+                        help=translator.translate("CLI", "Possible options: {}").format(
+                            "".join(" {},".format(o_type.upper()) for o_type in
+                                    LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.exporter_list)[:-1]))
+    parser.add_argument("--language", dest="language",
+                        help=translator.translate("CLI", "Choose the language for Alelo Export."))
+    parser.add_argument("--mouth-images", dest="mouth_image_dir",
+                        help=translator.translate("CLI", "The Directory containing the mouth Images."))
     parser.add_argument("--use-allosaurus", dest="allosaurus", action="store_true",
-                        help="Set this to run Allosaurus on your input files.")
+                        help=translator.translate("CLI", "Set this to run Allosaurus on your input files."))
     parser.add_argument("--use-rhubarb", dest="rhubarb", action="store_true",
-                        help="Set this to run Rhubarb on your input files.")
-    parser.add_argument("--fps", dest="fps", help="Set FPS for Input.", metavar="INT")
+                        help=translator.translate("CLI", "Set this to run Rhubarb on your input files."))
+    parser.add_argument("--fps", dest="fps", help=translator.translate("CLI", "Set FPS for Input."), metavar="INT")
     args = parser.parse_args()
     list_of_input_files = []
     langman = LipsyncFrameQT.LipsyncDoc.LanguageManager()
@@ -69,7 +79,8 @@ def parse_cli():
             if os.path.isdir(args.input_file_path):
                 for (dirpath, dirnames, filenames) in os.walk(args.input_file_path):
                     list_of_input_files.extend(os.path.join(dirpath, filename) if filename.endswith(
-                        LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.audio_extension_list) else "" for filename in
+                        LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.audio_extension_list) else "" for
+                                               filename in
                                                filenames)
                     break
             else:
@@ -127,6 +138,7 @@ def parse_cli():
 if __name__ == "__main__":
     if pyi_splash:
         pyi_splash.close()
+    application = QtWidgets.QApplication(sys.argv)
     use_cli = parse_cli()
     if not use_cli:
         if platform.system() == "Windows":

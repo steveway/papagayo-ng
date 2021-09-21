@@ -50,79 +50,122 @@ p, li { white-space: pre-wrap; }
     </message>
 </context>
 <context>
+    <name>CLI</name>
+    <message>
+        <location filename="papagayo-ng.py" line="32"/>
+        <source>The input file, either a supported Papagayo-NG Project or a sound file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="papagayo-ng.py" line="37"/>
+        <source>The output file, should be one of these filetypes or a directory: {}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="papagayo-ng.py" line="40"/>
+        <source>Possible options: {}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="papagayo-ng.py" line="44"/>
+        <source>Choose the language for Alelo Export.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="papagayo-ng.py" line="46"/>
+        <source>The Directory containing the mouth Images.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="papagayo-ng.py" line="48"/>
+        <source>Set this to run Allosaurus on your input files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="papagayo-ng.py" line="50"/>
+        <source>Set this to run Rhubarb on your input files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="papagayo-ng.py" line="51"/>
+        <source>Set FPS for Input.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>LipsyncFrame</name>
     <message>
-        <location filename="LipsyncFrameQt.py" line="892"/>
+        <location filename="LipsyncFrameQt.py" line="889"/>
         <source>Stopped</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="850"/>
+        <location filename="LipsyncFrameQt.py" line="847"/>
         <source>Download FFmpeg</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="854"/>
+        <location filename="LipsyncFrameQt.py" line="851"/>
         <source>Download AI Model</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="858"/>
+        <location filename="LipsyncFrameQt.py" line="855"/>
         <source>Download Rhubarb</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="978"/>
+        <location filename="LipsyncFrameQt.py" line="975"/>
         <source>Export Lipsync Data (MOHO)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="980"/>
+        <location filename="LipsyncFrameQt.py" line="977"/>
         <source>Moho switch files (*.dat)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="984"/>
+        <location filename="LipsyncFrameQt.py" line="981"/>
         <source>FPS is NOT 100 continue? (You will have issues downstream.)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="999"/>
+        <location filename="LipsyncFrameQt.py" line="996"/>
         <source>Export Lipsync Data (ALELO)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="1001"/>
+        <location filename="LipsyncFrameQt.py" line="998"/>
         <source>Alelo timing files (*.txt)|*.txt</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="1003"/>
+        <location filename="LipsyncFrameQt.py" line="1000"/>
         <source>Export Image Strip</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="1007"/>
+        <location filename="LipsyncFrameQt.py" line="1004"/>
         <source>Export JSON Object</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="1009"/>
+        <location filename="LipsyncFrameQt.py" line="1006"/>
         <source>JSON object files (*.json)|*.json</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="1114"/>
+        <location filename="LipsyncFrameQt.py" line="1111"/>
         <source>Choose Path for Images</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="227"/>
+        <location filename="LipsyncFrameQt.py" line="226"/>
         <source>Add a new Voice.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="LipsyncFrameQt.py" line="231"/>
+        <location filename="LipsyncFrameQt.py" line="230"/>
         <source>Delete Current Voice.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -151,7 +194,7 @@ p, li { white-space: pre-wrap; }
 <context>
     <name>Rhubarb</name>
     <message>
-        <location filename="Rhubarb.py" line="79"/>
+        <location filename="Rhubarb.py" line="80"/>
         <source>Rhubarb did not respond for more than 30 seconds.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -184,196 +227,103 @@ p, li { white-space: pre-wrap; }
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="243"/>
+        <location filename="rsrc/settings.ui" line="277"/>
         <source>FPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="266"/>
-        <source>Hold Phonemes during playback</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="230"/>
+        <location filename="rsrc/settings.ui" line="294"/>
         <source>Enable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="302"/>
-        <source>Frame Text Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="319"/>
-        <source>Word Fill Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="336"/>
-        <source>Word Line Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="353"/>
-        <source>Phrase Line Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="370"/>
-        <source>Playback Marker Fill Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="387"/>
-        <source>Frame Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="406"/>
-        <source>Waveform Fill Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="426"/>
-        <source>Phoneme Line Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="444"/>
-        <source>Playback Marker Line Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="460"/>
+        <location filename="rsrc/settings.ui" line="474"/>
         <source>QSS StyleSheet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="477"/>
-        <source>Waveform Line Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="497"/>
-        <source>Phoneme Fill Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="514"/>
-        <source>Phrase Fill Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="537"/>
-        <source>Background Color</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="548"/>
+        <location filename="rsrc/settings.ui" line="571"/>
         <source>Emission Multiplier</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="608"/>
-        <source>eng</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="555"/>
+        <location filename="rsrc/settings.ui" line="578"/>
         <source>LanguageID</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="657"/>
+        <location filename="rsrc/settings.ui" line="680"/>
         <source>Auto Run Voice Recognition</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="664"/>
+        <location filename="rsrc/settings.ui" line="687"/>
         <source>Voice Recognizer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="701"/>
+        <location filename="rsrc/settings.ui" line="724"/>
         <source>Remove FFMpeg</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="708"/>
+        <location filename="rsrc/settings.ui" line="731"/>
         <source>Remove AI Model</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="724"/>
+        <location filename="rsrc/settings.ui" line="747"/>
         <source>Open in FileBrowser</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="731"/>
+        <location filename="rsrc/settings.ui" line="754"/>
         <source>AppData Path:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="755"/>
+        <location filename="rsrc/settings.ui" line="778"/>
         <source>Reset Colors</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="762"/>
+        <location filename="rsrc/settings.ui" line="785"/>
         <source>Delete All Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="771"/>
+        <location filename="rsrc/settings.ui" line="794"/>
         <source>Remove Rhubarb</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="273"/>
+        <location filename="rsrc/settings.ui" line="251"/>
         <source>Language (needs restart to apply)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="588"/>
+        <location filename="rsrc/settings.ui" line="611"/>
         <source>Allosaurus Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="601"/>
-        <source>latest</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/settings.ui" line="615"/>
+        <location filename="rsrc/settings.ui" line="638"/>
         <source>Model Name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/settings.ui" line="677"/>
+        <location filename="rsrc/settings.ui" line="700"/>
         <source>General Settings</source>
         <translation type="unfinished"></translation>
     </message>
-</context>
-<context>
-    <name>SettingsWindow</name>
     <message>
-        <location filename="SettingsQT.py" line="77"/>
-        <source>Graphics</source>
+        <location filename="rsrc/settings.ui" line="237"/>
+        <source>Show Rest Frames after Words</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="SettingsQT.py" line="80"/>
-        <source>General</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="SettingsQT.py" line="83"/>
-        <source>Misc</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="SettingsQT.py" line="86"/>
-        <source>Voice</source>
+        <location filename="rsrc/settings.ui" line="287"/>
+        <source>Show Rest Frames after Phonemes</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -407,11 +357,6 @@ p, li { white-space: pre-wrap; }
 </context>
 <context>
     <name>main_window</name>
-    <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="17"/>
-        <source>MainWindow</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <location filename="rsrc/papagayo-ng2.ui" line="122"/>
         <source>Voice Name:</source>
@@ -458,188 +403,188 @@ p, li { white-space: pre-wrap; }
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="395"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="402"/>
         <source>FPS:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="405"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="412"/>
         <source>Apply</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="505"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="512"/>
         <source>Selected Object Tags</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="606"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="613"/>
         <source>Add</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="619"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="626"/>
         <source>Remove</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="635"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="642"/>
         <source>Change Voice</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="684"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="691"/>
         <source>&amp;File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="696"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="703"/>
         <source>&amp;Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="706"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="713"/>
         <source>&amp;Help</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="713"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="720"/>
         <source>&amp;Conversion</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="760"/>
-        <source>toolBar</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="784"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="791"/>
         <source>&amp;Help Topics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="793"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="800"/>
         <source>&amp;About Papagayo-ng</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="802"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="809"/>
         <source>&amp;Open</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="814"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="821"/>
         <source>&amp;Save</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="826"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="833"/>
         <source>&amp;Save As...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="835"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="842"/>
         <source>&amp;Exit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="847"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="854"/>
         <source>Undo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="859"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="866"/>
         <source>&amp;Cut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="871"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="878"/>
         <source>&amp;Copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="883"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="890"/>
         <source>&amp;Paste</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="895"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="902"/>
         <source>Play</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="907"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="914"/>
         <source>Stop</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="919"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="926"/>
         <source>ZoomIn</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="931"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="938"/>
         <source>ZoomOut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="943"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="950"/>
         <source>ResetZoom</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="952"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="959"/>
         <source>&amp;Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="958"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="965"/>
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="963"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="970"/>
         <source>Convert Phonemes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="966"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="973"/>
         <source>Convert Phonemes to currently selected Phoneme Set.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="971"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="978"/>
         <source>Select as Current Set</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="974"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="981"/>
         <source>This sets the currently selected Phoneme Set for the Project.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="720"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="727"/>
         <source>Download</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="724"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="731"/>
         <source>Allosaurus</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="730"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="737"/>
         <source>Rhubarb</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="736"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="743"/>
         <source>FFmpeg</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="rsrc/papagayo-ng2.ui" line="1001"/>
+        <location filename="rsrc/papagayo-ng2.ui" line="1008"/>
         <source>Update/Download</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="rsrc/papagayo-ng2.ui" line="326"/>
+        <source>Apply Rest Frame Settings on Export</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
