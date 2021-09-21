@@ -42,12 +42,12 @@ p, li { white-space: pre-wrap; }
     <message>
         <location filename="rsrc/about_box.ui" line="112"/>
         <source>Â© 2005-2006 Mike Clifton</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/about_box.ui" line="122"/>
         <source>Â© 2013-2021 Morevna Project</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
 </context>
 <context>
@@ -55,42 +55,42 @@ p, li { white-space: pre-wrap; }
     <message>
         <location filename="papagayo-ng.py" line="32"/>
         <source>The input file, either a supported Papagayo-NG Project or a sound file.</source>
-        <translation type="unfinished"></translation>
+        <translation>Die Eingangsdatei, entweder ein unterstütztes Papagayo-NG Project oder eine Audiodatei.</translation>
     </message>
     <message>
         <location filename="papagayo-ng.py" line="37"/>
         <source>The output file, should be one of these filetypes or a directory: {}</source>
-        <translation type="unfinished"></translation>
+        <translation>Die Ausgabedatei, sollte einer dieser Dateitypen sein oder ein Ordner: {}</translation>
     </message>
     <message>
         <location filename="papagayo-ng.py" line="40"/>
         <source>Possible options: {}</source>
-        <translation type="unfinished"></translation>
+        <translation>Mögliche Optionen: {}</translation>
     </message>
     <message>
         <location filename="papagayo-ng.py" line="44"/>
         <source>Choose the language for Alelo Export.</source>
-        <translation type="unfinished"></translation>
+        <translation>Wähle Sprache für Alelo Export.</translation>
     </message>
     <message>
         <location filename="papagayo-ng.py" line="46"/>
         <source>The Directory containing the mouth Images.</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Pfad welcher die Mundbilder beinhaltet.</translation>
     </message>
     <message>
         <location filename="papagayo-ng.py" line="48"/>
         <source>Set this to run Allosaurus on your input files.</source>
-        <translation type="unfinished"></translation>
+        <translation>Wähle dies um Allosaurus auf deine Eingangsdateien anzuwenden.</translation>
     </message>
     <message>
         <location filename="papagayo-ng.py" line="50"/>
         <source>Set this to run Rhubarb on your input files.</source>
-        <translation type="unfinished"></translation>
+        <translation>Wähle dies um Rhubarb auf deine Eingangsdateien anzuwenden.</translation>
     </message>
     <message>
         <location filename="papagayo-ng.py" line="51"/>
         <source>Set FPS for Input.</source>
-        <translation type="unfinished"></translation>
+        <translation>Wähle FPS für Eingang.</translation>
     </message>
 </context>
 <context>
@@ -240,7 +240,7 @@ p, li { white-space: pre-wrap; }
     <message>
         <location filename="rsrc/settings.ui" line="474"/>
         <source>QSS StyleSheet</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/settings.ui" line="571"/>
@@ -310,7 +310,7 @@ p, li { white-space: pre-wrap; }
     <message>
         <location filename="rsrc/settings.ui" line="638"/>
         <source>Model Name</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/settings.ui" line="700"/>
@@ -561,32 +561,32 @@ p, li { white-space: pre-wrap; }
     <message>
         <location filename="rsrc/papagayo-ng2.ui" line="727"/>
         <source>Download</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/papagayo-ng2.ui" line="731"/>
         <source>Allosaurus</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/papagayo-ng2.ui" line="737"/>
         <source>Rhubarb</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/papagayo-ng2.ui" line="743"/>
         <source>FFmpeg</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/papagayo-ng2.ui" line="1008"/>
         <source>Update/Download</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="rsrc/papagayo-ng2.ui" line="326"/>
         <source>Apply Rest Frame Settings on Export</source>
-        <translation type="unfinished"></translation>
+        <translation>&quot;Rest&quot; Frame Einstellungen beim Export anwenden</translation>
     </message>
 </context>
 </TS>
