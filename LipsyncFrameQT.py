@@ -461,10 +461,10 @@ class LipsyncFrame:
         download_json = json.loads(urllib.request.urlopen(github_url).read())
         for download in download_json[0]["assets"]:
             if platform.system() == "Darwin":
-                if download["name"].endswith("-osx.zip"):
+                if download["name"].endswith("-macOS.zip"):
                     release_url = download["browser_download_url"]
             else:
-                if download["name"].endswith("-win32.zip"):
+                if download["name"].endswith("-Windows.zip"):
                     release_url = download["browser_download_url"]
         rhubarb_path = os.path.join(utilities.get_app_data_path(), binary)
 
