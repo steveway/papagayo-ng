@@ -20,8 +20,8 @@
 import os
 import sys
 
-from PySide2 import QtCore, QtWidgets, QtGui
-from PySide2.QtWidgets import QMainWindow, QApplication, QGraphicsView, QGraphicsScene
+from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6.QtWidgets import QMainWindow, QApplication, QGraphicsView, QGraphicsScene
 
 import utilities
 from LipsyncDoc import PhonemeSet

@@ -2,7 +2,7 @@
 import argparse
 import ctypes
 
-from PySide2 import QtWidgets
+from PySide6 import QtWidgets
 
 import utilities
 import logging
@@ -149,4 +149,4 @@ if __name__ == "__main__":
                 ctypes.WinDLL('user32').ShowWindow(kernel32.GetConsoleWindow(), 0)
         papagayo_window = LipsyncFrameQT.LipsyncFrame()
         papagayo_window.main_window.show()
-        sys.exit(papagayo_window.app.exec_())
+        sys.exit(papagayo_window.app.exec())

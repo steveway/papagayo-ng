@@ -24,10 +24,10 @@ import platform
 import shutil
 from functools import partial
 
-import PySide2.QtWidgets as QtWidgets
-from PySide2 import QtCore, QtGui
-from PySide2.QtCore import QFile
-from PySide2.QtUiTools import QUiLoader as uic
+import PySide6.QtWidgets as QtWidgets
+from PySide6 import QtCore, QtGui
+from PySide6.QtCore import QFile
+from PySide6.QtUiTools import QUiLoader as uic
 
 import utilities
 

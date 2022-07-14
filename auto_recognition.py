@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 import time
 
-import PySide2.QtCore as QtCore
+import PySide6.QtCore as QtCore
 import utilities
 
 if utilities.get_app_data_path() not in os.environ['PATH']:
@@ -17,10 +17,8 @@ if utilities.main_is_frozen():
     subprocess.STARTUPINFO().dwFlags |= subprocess.STARTF_USESHOWWINDOW
 import pydub
 from pydub.generators import WhiteNoise
-from PySide2 import QtWidgets
+from PySide6 import QtWidgets
 from allosaurus.app import read_recognizer
-
-from utilities import get_main_dir
 
 
 class AutoRecognize:
@@ -53,11 +51,11 @@ class AutoRecognize:
         five_second_sample_temp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
         out_ = five_second_sample.export(five_second_sample_temp_file, format="wav", bitrate="256k")
         out_.close()
-
+        lang_model = self.settings.value("/VoiceRecognition/allosaurus_model")
         try:
-            model = read_recognizer("latest", self.allo_model_path)
+            model = read_recognizer(lang_model, self.allo_model_path)
         except TypeError:
-            model = read_recognizer("latest")
+            model = read_recognizer(lang_model)
         start_time = time.process_time()
         model.recognize(five_second_sample_temp_file, timestamp=True,
                         lang_id=self.settings.value("/VoiceRecognition/allo_lang_id", "eng"),
@@ -90,10 +88,11 @@ class AutoRecognize:
         self.main_window.lip_sync_frame.status_progress.hide()
 
     def recognize_allosaurus(self):
+        lang_model = self.settings.value("/VoiceRecognition/allosaurus_model")
         try:
-            model = read_recognizer("latest", self.allo_model_path)
+            model = read_recognizer(lang_model, self.allo_model_path)
         except TypeError:
-            model = read_recognizer("latest")
+            model = read_recognizer(lang_model)
         if self.main_window:
             worker = utilities.Worker(self.update_progress)
             self.main_window.lip_sync_frame.status_progress.show()
@@ -116,17 +115,10 @@ class AutoRecognize:
                 start, dur, phone = line.split()
                 phone = "".join(e for e in phone if e not in stress_symbols)
                 if phone not in ipa_convert:
-                    logging.info("Missing conversion for: " + phone)
-                    # if self.main_window:
-                    #     dlg = QtWidgets.QMessageBox()
-                    #     dlg.setText("Missing conversion for: " + phone)
-                    #     dlg.setWindowTitle("Missing Phoneme Conversion")
-                    #     dlg.setWindowIcon(self.main_window.windowIcon())
-                    #     dlg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-                    #     dlg.setDefaultButton(QtWidgets.QMessageBox.Ok)
-                    #     dlg.setIcon(QtWidgets.QMessageBox.Information)
-                    #     dlg.exec_()
-
+                    error_message = "Missing conversion for: " + phone
+                    logging.info(error_message)
+                    # Show an error dialog using the main thread:
+                    QtCore.QTimer.singleShot(0, lambda: self.main_window.lip_sync_frame.show_error_dialog(error_message))
                 phone_dict = {"start": float(start), "duration": float(dur), "phoneme": ipa_convert.get(phone)}
                 time_list.append(float(start) - prev_start)
                 prev_start = float(start)

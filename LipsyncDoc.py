@@ -43,7 +43,7 @@ try:
 except ImportError:
     import ConfigParser as configparser
 
-import PySide2.QtCore as QtCore
+import PySide6.QtCore as QtCore
 
 import utilities
 from PronunciationDialogQT import PronunciationDialog, show_pronunciation_dialog
@@ -54,12 +54,13 @@ config = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
 if config.value("audio_output", "old") == "old":
     import SoundPlayer as SoundPlayer
 else:
-    if sys.platform == "win32":
-        import SoundPlayerNew as SoundPlayer
-    elif sys.platform == "darwin":
-        import SoundPlayerOSX as SoundPlayer
-    else:
-        import SoundPlayer as SoundPlayer
+    import SoundPlayer as SoundPlayer
+    # if sys.platform == "win32":
+    #     import SoundPlayerNew as SoundPlayer
+    # elif sys.platform == "darwin":
+    #     import SoundPlayerOSX as SoundPlayer
+    # else:
+    #     import SoundPlayer as SoundPlayer
 
 strip_symbols = '.,!?;-/()"'
 strip_symbols += '\N{INVERTED QUESTION MARK}'
@@ -802,6 +803,19 @@ class LipsyncDoc:
         self.open_audio(self.soundPath)
         if len(self.voices) > 0:
             self.current_voice = self.voices[0]
+
+    def get_audio_chunk(self, start_frame, end_frame):
+        """Instead of loading the whole file we can just load a chunk of it."""
+        if self.sound is None:
+            return None
+        if start_frame < 0:
+            start_frame = 0
+        if end_frame > self.sound.length:
+            end_frame = self.sound.length
+        if start_frame >= end_frame:
+            return None
+        return self.sound.get_samples(start_frame, end_frame)
+
 
     def open_audio(self, path):
         if not os.path.exists(path):

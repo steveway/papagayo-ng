@@ -5,7 +5,7 @@ import sys
 import traceback
 import appdirs
 
-from PySide2 import QtCore, QtGui
+from PySide6 import QtCore, QtGui
 
 original_colors = {"wave_fill_color": QtGui.QColor(162, 205, 242),
                    "wave_line_color": QtGui.QColor(30, 121, 198),
