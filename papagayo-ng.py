@@ -58,7 +58,6 @@ def parse_cli():
     parser.add_argument("--use-rhubarb", dest="rhubarb", action="store_true",
                         help=translator.translate("CLI", "Set this to run Rhubarb on your input files."))
     parser.add_argument("--fps", dest="fps", help=translator.translate("CLI", "Set FPS for Input."), metavar="INT")
-    parser.add_argument("--fps", dest="fps", help="Set FPS for Input.", metavar="INT")
     parser.add_argument("--log-level", "-l", dest=ARG_KEY_LOG_LEVEL, choices=logging._nameToLevel.keys(), help="Set logging level.", default=logging._levelToName[logging.WARNING])
     args = parser.parse_args()
 

@@ -3,8 +3,15 @@ cffi
 numpy
 pydub
 anytree
-PySide2
 audioread
-allosaurus >= 1.0.1
+allosaurus
 appdirs
 pyyaml
+
+PySide6
+PyAudio
+webrtcvad
+pygame
+pypiwin32
+pywin32
+soundfile

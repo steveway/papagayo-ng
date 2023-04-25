@@ -33,7 +33,7 @@ def get_main_dir():
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
-        if sys._MEIPASS:
+        if hasattr(sys, "_MEIPASS"):
             base_path = os.path.dirname(sys.executable)
         else:
             base_path = os.path.abspath(".")
@@ -53,7 +53,7 @@ def get_app_data_path():
     if not os.path.exists(user_data_dir):
         os.mkdir(user_data_dir)
     ini_path = os.path.join(user_data_dir, "settings.ini")
-    config = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+    config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
     config.setFallbacksEnabled(False)  # File only, not registry or or.
     config.setValue("appdata_dir", user_data_dir)
 
@@ -147,7 +147,7 @@ class ApplicationTranslator:
         self.app = QtCore.QCoreApplication.instance()
         self.translator = QtCore.QTranslator()
         ini_path = os.path.join(get_app_data_path(), "settings.ini")
-        config = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         config.setFallbacksEnabled(False)  # File only, not registry or or.
         self.translator.load(config.value("language", "en_us"), os.path.join(get_main_dir(), "rsrc", "i18n"))
         self.app.installTranslator(self.translator)

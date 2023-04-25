@@ -52,12 +52,12 @@ from PronunciationDialogQT import PronunciationDialog, show_pronunciation_dialog
 logger = logging.getLogger('LipsyncDoc')
 
 ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-config = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
 
 if config.value("audio_output", "old") == "old":
     import SoundPlayer as SoundPlayer
 else:
-    import SoundPlayer as SoundPlayer
+    import SoundPlayerNew as SoundPlayer
     # if sys.platform == "win32":
     #     import SoundPlayerNew as SoundPlayer
     # elif sys.platform == "darwin":
@@ -86,6 +86,7 @@ class LanguageManager:
         self.init_languages()
 
     def load_dictionary(self, path):
+        print("Loading dictionary: {}".format(path))
         try:
             in_file = open(path, 'r')
         except FileNotFoundError:
