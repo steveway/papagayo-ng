@@ -15,20 +15,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-import logging
+
 import math
 import shutil
-import sys
 
 import anytree
-from anytree import NodeMixin, Node, RenderTree
+from anytree import NodeMixin
 import importlib
 import json
 import fnmatch
-
-from anytree.exporter import DotExporter
-
-import utilities
 
 try:
     import auto_recognition
@@ -176,7 +171,7 @@ class LipSyncObject(NodeMixin):
                  tags=None, num_children=0, sound_duration=0, fps=24):
         self.parent = parent
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.config = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        self.config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         self.config.setFallbacksEnabled(False)  # File only, not registry or or.
         if children:
             self.children = children
@@ -338,7 +333,7 @@ class LipSyncObject(NodeMixin):
                     child.start_frame = round(self.start_frame +
                                               ((self.get_frame_size() / self.get_min_size()) * position))
                     child.move_button.after_reposition()
-                #self.wfv_parent.doc.dirty = True
+                # self.wfv_parent.doc.dirty = True
             elif self.object_type == "phrase":
                 extra_space = self.get_frame_size() - self.get_min_size()
                 for child in self.children:
@@ -378,13 +373,13 @@ class LipSyncObject(NodeMixin):
                 for child in self.children:
                     child.move_button.after_reposition()
                     child.reposition_descendants2(True, 0)
-                #self.wfv_parent.doc.dirty = True
+                # self.wfv_parent.doc.dirty = True
         else:
             for child in self.descendants:
                 child.start_frame += x_diff
                 child.end_frame += x_diff
                 child.move_button.after_reposition()
-            #self.wfv_parent.doc.dirty = True
+            # self.wfv_parent.doc.dirty = True
 
     def open(self, in_file):
         self.name = in_file.readline().strip()
@@ -452,7 +447,8 @@ class LipSyncObject(NodeMixin):
                 # self.children.append(phrase)
             # now break down the phrases
             for phrase in self.children:
-                return_value = phrase.run_breakdown(frame_duration, parent_window, language, languagemanager, phonemeset)
+                return_value = phrase.run_breakdown(frame_duration, parent_window, language, languagemanager,
+                                                    phonemeset)
                 if return_value == -1:
                     return -1
             # for first-guess frame alignment, count how many phonemes we have
@@ -503,6 +499,7 @@ class LipSyncObject(NodeMixin):
             try:
                 text = self.text.strip(strip_symbols)
                 details = languagemanager.language_table[language]
+                pronunciation_raw = None
                 if details["type"] == "breakdown":
                     breakdown = importlib.import_module(details["breakdown_class"])
                     pronunciation_raw = breakdown.breakdown_word(text)
@@ -517,8 +514,7 @@ class LipSyncObject(NodeMixin):
                     else:
                         pronunciation_raw = languagemanager.raw_dictionary[text]
                 else:
-                    # TODO why is phonemeDictionary not defined?
-                    pronunciation_raw = phonemeDictionary[text.upper()]
+                    logging.info(("Unknown type:", details["type"]))
 
                 pronunciation = []
                 for i in range(len(pronunciation_raw)):
@@ -713,7 +709,7 @@ class LipsyncDoc:
     def __init__(self, langman: LanguageManager, parent):
         self._dirty = False
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
         self.name = "Untitled"
         self.path = None
@@ -821,15 +817,13 @@ class LipsyncDoc:
             return None
         return self.sound.get_samples(start_frame, end_frame)
 
-
     def open_audio(self, path):
         if not os.path.exists(path):
             return
         if self.sound is not None:
             del self.sound
             self.sound = None
-        # self.soundPath = str(path.encode("utf-8"))
-        self.soundPath = path  # .encode('latin-1', 'replace')
+        self.soundPath = path
         self.sound = SoundPlayer.SoundPlayer(self.soundPath, self.parent)
         if self.sound.IsValid():
             logging.info("valid sound")
@@ -846,8 +840,6 @@ class LipsyncDoc:
 
     def open_from_dict(self, json_data):
         self._dirty = False
-        # self.path = os.path.normpath(path)
-        # self.name = os.path.basename(path)
         self.project_node.name = "Test_Copy"
         self.project_node.children = []
         self.sound = None
@@ -879,7 +871,6 @@ class LipsyncDoc:
                                                      object_type="phoneme", parent=temp_word,
                                                      sound_duration=self.soundDuration)
             self.voices.append(temp_voice)
-        # file_data.close()
         self.open_audio(self.soundPath)
         if len(self.voices) > 0:
             self.current_voice = self.voices[0]
@@ -1002,33 +993,16 @@ class LipsyncDoc:
                 self.dirty = True
                 self.parent.phonemeset.selected_set = new_set
                 self.parent.main_window.waveform_view.set_document(self, force=True, clear_scene=True)
-            # if old_set != "CMU_39":
-            #     conversion_map_to_cmu = {v: k for k, v in self.parent.phonemeset.conversion.items()}
-            #     for voice in self.project_node.children:
-            #         for phrase in voice.children:
-            #             for word in phrase.children:
-            #                 for phoneme in word.children:
-            #                     phoneme.text = conversion_map_to_cmu.get(phoneme.text, "rest")
-            # new_map = PhonemeSet()
-            # new_map.load(new_set)
-            # conversion_map_from_cmu = new_map.conversion
-            # for voice in self.project_node.children:
-            #     for phrase in voice.children:
-            #         for word in phrase.children:
-            #             for phoneme in word.children:
-            #                 phoneme.text = conversion_map_from_cmu.get(phoneme.text, "rest")
-            # self.dirty = True
-            # self.parent.phonemeset.selected_set = new_set
-            # self.parent.main_window.waveform_view.set_document(self, force=True, clear_scene=True)
 
     def auto_recognize_phoneme(self, manual_invoke=False):
-        if str(self.settings.value("/VoiceRecognition/run_voice_recognition", "true")).lower() == "true" or manual_invoke:
+        if str(self.settings.value("/VoiceRecognition/run_voice_recognition",
+                                   "true")).lower() == "true" or manual_invoke:
             if auto_recognition:
                 if self.settings.value("/VoiceRecognition/recognizer", "Allosaurus") == "Allosaurus":
                     allo_recognizer = auto_recognition.AutoRecognize(self.soundPath)
                     out_or_none = allo_recognizer.recognize_allosaurus()
                     if out_or_none is None:
-                        logger.warn('recognize_allosaurus returned None; no results')
+                        logger.warning('recognize_allosaurus returned None; no results')
                         # set default/empty values on none
                         results, peaks, allo_output = (None, None, None)
                     else:
@@ -1075,7 +1049,8 @@ class LipsyncDoc:
                         # self.current_voice.phrases.append(phrase)
                         self.parent.phonemeset.selected_set = self.parent.phonemeset.load("CMU_39")
                         try:
-                            current_index = self.parent.main_window.phoneme_set.findText(self.parent.phonemeset.selected_set)
+                            current_index = self.parent.main_window.phoneme_set.findText(
+                                self.parent.phonemeset.selected_set)
                             self.parent.main_window.phoneme_set.setCurrentIndex(current_index)
                         except AttributeError:
                             pass

@@ -72,7 +72,7 @@ def parse_cli():
     langman = LipsyncFrameQT.LipsyncDoc.LanguageManager()
     langman.init_languages()
     ini_path = os.path.join(LipsyncFrameQT.utilities.get_app_data_path(), "settings.ini")
-    config = LipsyncFrameQT.QtCore.QSettings(ini_path, LipsyncFrameQT.QtCore.QSettings.IniFormat)
+    config = LipsyncFrameQT.QtCore.QSettings(ini_path, LipsyncFrameQT.QtCore.QSettings.Format.IniFormat)
     if not args.use_cli:
         config.setValue("audio_output", "new")
     else:

@@ -31,7 +31,7 @@ import tarfile
 import time
 from functools import partial
 
-from PySide6.QtCore import QFile, QObject
+from PySide6.QtCore import QFile, SIGNAL
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtUiTools import QUiLoader as uic
 
@@ -132,7 +132,7 @@ def open_file_no_gui(path, parent):
 
 class LipsyncFrame:
     def __init__(self):
-        QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
+        QtCore.QCoreApplication.setAttribute(QtCore.Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
         self.app = QtCore.QCoreApplication.instance()
         self.translator = utilities.ApplicationTranslator()
@@ -279,10 +279,8 @@ class LipsyncFrame:
             self.allo_select.setChecked(True)
         elif self.config.value("/VoiceRecognition/recognizer", "Allosaurus") == "Rhubarb":
             self.rhubarb_select.setChecked(True)
-        self.main_window.connect(self.allo_select, QtCore.SIGNAL("triggered()"),
-                                 partial(self.select_voice_recognizer, "Allosaurus"))
-        self.main_window.connect(self.rhubarb_select, QtCore.SIGNAL("triggered()"),
-                                 partial(self.select_voice_recognizer, "Rhubarb"))
+        self.allo_select.triggered.connect(partial(self.select_voice_recognizer, "Allosaurus"))
+        self.rhubarb_select.triggered.connect(partial(self.select_voice_recognizer, "Rhubarb"))
         self.main_window.voice_recognition_button.setMenu(self.recognize_menu)
 
         self.dropfilter = DropFilter()
@@ -328,7 +326,7 @@ class LipsyncFrame:
         dlg.exec_()
 
     def change_stylesheet(self):
-        style_file_path = self.config.value("qss_file_path", "")
+        style_file_path = str(self.config.value("qss_file_path", ""))
         if style_file_path:
             with open(style_file_path, "r") as style_file:
                 self.app.setStyleSheet(style_file.read())
@@ -359,9 +357,9 @@ class LipsyncFrame:
         dlg.setText("Download of FFMPEG is finished. \nPlease close and restart Papagayo-NG")
         dlg.setWindowTitle(app_title)
         dlg.setWindowIcon(self.main_window.windowIcon())
-        dlg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        dlg.setDefaultButton(QtWidgets.QMessageBox.Ok)
-        dlg.setIcon(QtWidgets.QMessageBox.Information)
+        dlg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
+        dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Ok)
+        dlg.setIcon(QtWidgets.QMessageBox.Icon.Information)
         dlg.exec_()
 
     def start_download(self, work_job):
@@ -382,7 +380,7 @@ class LipsyncFrame:
         QtCore.QCoreApplication.processEvents()
 
     def download_allosaurus_model(self, progress_callback):
-        model_name = self.config.value("/VoiceRecognition/allosaurus_model", "latest")
+        model_name = str(self.config.value("/VoiceRecognition/allosaurus_model", "latest"))
         url = 'https://github.com/xinjli/allosaurus/releases/download/v1.0/' + model_name + '.tar.gz'
         model_dir = os.path.join(utilities.get_app_data_path(), "allosaurus_model")
         with urllib.request.urlopen(url) as req:
@@ -527,6 +525,7 @@ class LipsyncFrame:
             self.phonemeset.selected_set = self.phonemeset.load(phonemeset_name)
 
     def select_voice_recognizer(self, event=None):
+        print(event)
         self.config.setValue("/VoiceRecognition/recognizer", event)
         if event == "Allosaurus":
             self.allo_select.setChecked(True)
@@ -687,7 +686,8 @@ class LipsyncFrame:
             return
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self.main_window,
                                                              "Open Audio or {} File".format(app_title),
-                                                             self.config.value("WorkingDir", utilities.get_main_dir()),
+                                                             str(self.config.value("WorkingDir",
+                                                                                   utilities.get_main_dir())),
                                                              open_wildcard)
         if file_path:
             self.config.setValue("WorkingDir", os.path.dirname(file_path))
@@ -709,18 +709,18 @@ class LipsyncFrame:
                 dlg = QtWidgets.QMessageBox(self.main_window)
                 dlg.setText('Please load correct audio file')
                 dlg.setWindowTitle(app_title)
-                dlg.setIcon(QtWidgets.QMessageBox.Warning)
+                dlg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
                 dlg.exec_()  # This should open it as a modal blocking window
                 file_path = QtWidgets.QFileDialog.getOpenFileName(self.main_window,
                                                                   "Open Audio",
-                                                                  self.config.value("WorkingDir",
-                                                                                    utilities.get_main_dir()),
+                                                                  str(self.config.value("WorkingDir",
+                                                                                        utilities.get_main_dir())),
                                                                   audio_extensions)[0]
                 if file_path:
                     self.doc.open_audio(file_path)
         else:
             # open an audio file
-            self.doc.fps = int(self.config.value("LastFPS", 24))
+            self.doc.fps = int(str(self.config.value("LastFPS", 24)))
             self.doc.open_audio(path)
             if self.doc.sound is None:
                 self.doc = None
@@ -747,7 +747,7 @@ class LipsyncFrame:
             self.main_window.vertical_layout_right.setEnabled(True)
             self.main_window.vertical_layout_left.setEnabled(True)
             self.main_window.volume_slider.setEnabled(True)
-            self.main_window.volume_slider.setValue(int(self.config.value("volume", 50)))
+            self.main_window.volume_slider.setValue(int(str(self.config.value("volume", 50))))
             self.main_window.action_save.setEnabled(True)
             self.main_window.action_save_as.setEnabled(True)
             self.main_window.action_cut.setEnabled(True)
@@ -799,7 +799,8 @@ class LipsyncFrame:
             return
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self.main_window,
                                                              "Save {} File".format(app_title),
-                                                             self.config.value("WorkingDir", utilities.get_main_dir()),
+                                                             str(self.config.value("WorkingDir",
+                                                                                   utilities.get_main_dir())),
                                                              save_wildcard)
         if file_path:
             self.config.setValue("WorkingDir", os.path.dirname(file_path))
@@ -989,12 +990,13 @@ class LipsyncFrame:
                 default_file = "{}".format(self.doc.soundPath.rsplit('.', 1)[0]) + ".dat"
                 wildcard = self.translator.translate("LipsyncFrame", "Moho switch files (*.dat)")
             elif exporter == "ALELO":
-                fps = int(self.config.value("FPS", 24))
+                fps = int(str(self.config.value("FPS", 24)))
                 if fps != 100:
                     dlg = QtWidgets.QMessageBox()
                     dlg.setText(self.translator.translate("LipsyncFrame",
                                                           "FPS is NOT 100 continue? (You will have issues downstream.)"))
-                    dlg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+                    dlg.setStandardButtons(
+                        QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
                     dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Yes)
                     dlg.setIcon(QtWidgets.QMessageBox.Icon.Question)
                     result = dlg.exec_()
@@ -1130,12 +1132,13 @@ class LipsyncFrame:
             voiceimage_path = QtWidgets.QFileDialog.getExistingDirectory(self.main_window,
                                                                          self.translator.translate("LipsyncFrame",
                                                                                                    "Choose Path for Images"),
-                                                                         self.config.value("MouthDir",
-                                                                                           os.path.join(os.path.dirname(
-                                                                                               os.path.abspath(
-                                                                                                   __file__)),
-                                                                                               "rsrc",
-                                                                                               r"mouths/")))
+                                                                         str(self.config.value("MouthDir",
+                                                                                               os.path.join(
+                                                                                                   os.path.dirname(
+                                                                                                       os.path.abspath(
+                                                                                                           __file__)),
+                                                                                                   "rsrc",
+                                                                                                   r"mouths/"))))
             if voiceimage_path:
                 self.config.setValue("MouthDir", voiceimage_path)
                 supported_imagetypes = QtGui.QImageReader.supportedImageFormats()
