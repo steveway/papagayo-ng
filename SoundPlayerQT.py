@@ -27,6 +27,8 @@ class SoundPlayer:
         self.isplaying = False
         self.time = 0  # current audio position in frames
         self.audio = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.audio.setAudioOutput(self.audio_output)
         self.decoder = QAudioDecoder()
         self.is_loaded = False
         self.volume = 100
@@ -66,10 +68,10 @@ class SoundPlayer:
         num_bits = audioformat.bytesPerSample()
         signed = audioformat.sampleFormat()
         self.max_bits = 2 ** int(num_bits)
-        if signed == QAudioFormat.UInt8:
+        if signed == QAudioFormat.SampleFormat.UInt8:
             self.signed = False
             return "uint{0}_t".format(str(num_bits))
-        elif signed in [QAudioFormat.Int16, QAudioFormat.Int32]:
+        elif signed in [QAudioFormat.SampleFormat.Int16, QAudioFormat.SampleFormat.Int32]:
             self.signed = True
             self.max_bits = int(self.max_bits / 2)
             return "int{0}_t".format(str(num_bits))
@@ -129,7 +131,7 @@ class SoundPlayer:
             return 1
 
     def is_playing(self):
-        if self.audio.playbackState() == QMediaPlayer.PlayingState:
+        if self.audio.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             return True
         else:
             return False
@@ -148,7 +150,7 @@ class SoundPlayer:
 
     def set_volume(self, newvolume):
         self.volume = newvolume
-        self.audio.setVolume(self.volume)
+        self.audio_output.setVolume(self.volume)
 
     def play(self, arg):
         self.isplaying = True  # TODO: We should be able to replace isplaying with queries to self.audio.state()
@@ -157,7 +159,7 @@ class SoundPlayer:
     def play_segment(self, start, length):
         if not self.is_playing():  # otherwise this gets kinda echo-y
             self.isplaying = True
-            self.audio.setPosition(start * 1000.0)
+            self.audio.setPosition(int(start * 1000))
             self.audio.play()
             thread.start_new_thread(self._wait_for_segment_end, (start, length))
 

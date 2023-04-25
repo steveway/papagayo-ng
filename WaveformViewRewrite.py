@@ -22,6 +22,7 @@
 
 import re
 import time
+import sys
 
 import PySide6.QtWidgets as QtWidgets
 import numpy as np
@@ -35,7 +36,7 @@ from LipsyncDoc import *
 
 def normalize(x):
     x = np.asarray(x)
-    return ((x - x.min()) / (np.ptp(x))) * 0.8
+    return ((x - x.min(initial=0)) / (np.ptp(x))) * 0.8
 
 
 font = QtGui.QFont("Swiss", 6)
@@ -160,7 +161,7 @@ class MovableButton(QtWidgets.QPushButton):
     def after_reposition(self):
         self.setGeometry(self.convert_to_pixels(self.node.start_frame), self.y(),
                          self.convert_to_pixels(self.node.get_frame_size()), self.height())
-        replaced = re.sub('(border-width: \dpx) \d+px', r'\1 {}px'.format(str(self.get_handle_width())),
+        replaced = re.sub(r'(border-width: \dpx) \d+px', r'\1 {}px'.format(str(self.get_handle_width())),
                           self.styleSheet())
         self.setStyleSheet(replaced)
         self.update()
@@ -179,7 +180,7 @@ class MovableButton(QtWidgets.QPushButton):
                             self.node.end_frame) - self.get_handle_width()):
                         self.is_resizing = True
                         self.resize_origin = 1
-                    if (self.x() + event.x() <= self.x() + self.get_handle_width()):
+                    if self.x() + event.x() <= self.x() + self.get_handle_width():
                         self.is_resizing = True
                         self.resize_origin = 0
                 else:
@@ -365,7 +366,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.default_samples_per_frame = default_samples_per_frame
         self.sample_width = self.default_sample_width
         self.samples_per_frame = self.default_samples_per_frame
-        self.samples_per_sec = int(self.settings.value("LastFPS", 24)) * self.samples_per_frame
+        self.samples_per_sec = int(str(self.settings.value("LastFPS", 24))) * self.samples_per_frame
         self.frame_width = self.sample_width * self.samples_per_frame
         self.phrase_bottom = 16
         self.word_bottom = 32
@@ -389,7 +390,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.scene().setSceneRect(0, 0, self.width(), self.height())
         self.resize_timer = QtCore.QTimer(self)
         self.resize_timer.setSingleShot(True)
-        self.connect(self.resize_timer, QtCore.SIGNAL("timeout()"), self.resize_finished)
+        self.resize_timer.timeout.connect(self.resize_finished)
 
     def dropEvent(self, event):
         print("DragLeave")  # Strangely no dragLeaveEvent fires but a dropEvent instead...

@@ -1,6 +1,6 @@
-import imp
 import os
 import platform
+import shutil
 import sys
 import traceback
 import appdirs
@@ -25,19 +25,16 @@ original_colors = {"wave_fill_color": QtGui.QColor(162, 205, 242),
 
 def main_is_frozen():
     return (hasattr(sys, "frozen") or  # new py2exe
-            hasattr(sys, "importers") or  # old py2exe
-            imp.is_frozen("__main__"))  # tools/freeze
+            hasattr(sys, "importers") or
+            hasattr(sys, "_MEIPASS"))
 
 
 def get_main_dir():
     """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        if hasattr(sys, "_MEIPASS"):
-            base_path = os.path.dirname(sys.executable)
-        else:
-            base_path = os.path.abspath(".")
-    except Exception:
+    # PyInstaller creates a temp folder and stores path in _MEIPASS
+    if hasattr(sys, "_MEIPASS"):
+        base_path = os.path.dirname(sys.executable)
+    else:
         base_path = os.path.abspath(".")
     return base_path
 
@@ -61,27 +58,7 @@ def get_app_data_path():
 
 
 def which(program):
-    def is_exe(fpath):
-        if os.name == 'nt':
-            return os.path.isfile(fpath) or os.path.isfile("{}.exe".format(fpath)) or os.path.isfile(
-                "{}.bat".format(fpath))
-        else:
-            return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        program = os.path.realpath(program)
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            exe_file = os.path.realpath(exe_file)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
+    return shutil.which(program)
 
 
 def ffmpeg_binaries_exists():
@@ -122,6 +99,8 @@ def rhubarb_binaries_exists():
 
 
 _INIT_LOGGING_DONE = False
+
+
 def init_logging():
     """Set up logging streams and format.
     """
@@ -137,7 +116,7 @@ def init_logging():
 
         root_logger.addHandler(stdout_handler)
         _INIT_LOGGING_DONE = True
-        
+
     else:
         logging.info(f'init_logging already called; skip creation of duplicate handlers')
 
@@ -149,7 +128,7 @@ class ApplicationTranslator:
         ini_path = os.path.join(get_app_data_path(), "settings.ini")
         config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         config.setFallbacksEnabled(False)  # File only, not registry or or.
-        self.translator.load(config.value("language", "en_us"), os.path.join(get_main_dir(), "rsrc", "i18n"))
+        self.translator.load(str(config.value("language", "en_us")), os.path.join(get_main_dir(), "rsrc", "i18n"))
         self.app.installTranslator(self.translator)
 
     def translate(self, context, text):
@@ -157,7 +136,7 @@ class ApplicationTranslator:
 
 
 class WorkerSignals(QtCore.QObject):
-    '''
+    """
     Defines the signals available from a running worker thread.
 
     Supported signals are:
@@ -174,7 +153,7 @@ class WorkerSignals(QtCore.QObject):
     progress
         `int` indicating % progress
 
-    '''
+    """
     finished = QtCore.Signal()
     error = QtCore.Signal(tuple)
     result = QtCore.Signal(object)
@@ -182,7 +161,7 @@ class WorkerSignals(QtCore.QObject):
 
 
 class Worker(QtCore.QRunnable):
-    '''
+    """
     Worker thread
 
     Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
@@ -193,7 +172,7 @@ class Worker(QtCore.QRunnable):
     :param args: Arguments to pass to the callback function
     :param kwargs: Keywords to pass to the callback function
 
-    '''
+    """
 
     def __init__(self, fn, *args, **kwargs):
         super(Worker, self).__init__()
@@ -209,9 +188,9 @@ class Worker(QtCore.QRunnable):
 
     @QtCore.Slot()
     def run(self):
-        '''
+        """
         Initialise the runner function with passed args, kwargs.
-        '''
+        """
 
         # Retrieve args/kwargs here; and fire processing using them
         try:

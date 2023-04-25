@@ -41,7 +41,7 @@ class PronunciationDialog(QMainWindow):
         self.translator = utilities.ApplicationTranslator()
         self.setWindowTitle(self.translator.translate("PronunciationDialog", "Phoneme Visualizer"))
         self.word_label = QtWidgets.QLabel(self.translator.translate("PronunciationDialog", "Break down the word:"))
-        self.word_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.word_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.box = QtWidgets.QVBoxLayout()
         self.phoneme_grid = QtWidgets.QGridLayout()
         self.main_widget = QtWidgets.QWidget()
@@ -52,8 +52,8 @@ class PronunciationDialog(QMainWindow):
         self.mouth_view = QGraphicsView()
         self.mouth_view.setScene(QGraphicsScene())
         self.mouth_view.setMinimumSize(200, 200)
-        self.mouth_view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.mouth_view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.mouth_view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.mouth_view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.load_mouths()
         self.phoneme_set = PhonemeSet()
         self.phoneme_set.load("preston_blair")
@@ -63,7 +63,7 @@ class PronunciationDialog(QMainWindow):
         mouth_list.sort(key=sort_mouth_list_order)
         for mouth in mouth_list:
             self.mouth_choice.addItem(mouth)
-        #self.mouth_choice.setCurrentIndex(self.main_window.mouth_choice.currentIndex())
+        # self.mouth_choice.setCurrentIndex(self.main_window.mouth_choice.currentIndex())
         self.mouth_choice.current_mouth = self.mouth_choice.currentText()
 
         self.gave_ok = False
@@ -144,7 +144,7 @@ class PronunciationDialog(QMainWindow):
 
     def on_mouth_choice(self, event=None):
         self.current_mouth = self.mouth_choice.currentText()
-        #self.mouth_view.draw_me()
+        # self.mouth_view.draw_me()
 
     def on_accept(self):
         self.gave_ok = True
@@ -199,11 +199,13 @@ class PronunciationDialog(QMainWindow):
             bitmap = self.mouths[list(self.mouths)[0]]["rest"]
         self.mouth_view.scene().clear()
         bitmap = bitmap.scaled(self.mouth_view.scene().width() or 200, self.mouth_view.scene().height() or 200,
-                               QtCore.Qt.KeepAspectRatio)
+                               QtCore.Qt.AspectRatioMode.KeepAspectRatio)
         self.mouth_view.scene().addPixmap(bitmap)
         if phoneme not in self.mouths[self.current_mouth].keys():
-            self.mouth_view.scene().addText(self.translator.translate("MouthView", "Missing Mouth: {0}").format(phoneme), QtGui.QFont("Swiss", 14))
-        self.mouth_view.fitInView(self.mouth_view.x(), self.mouth_view.y(), self.mouth_view.width(), self.mouth_view.height())
+            self.mouth_view.scene().addText(
+                self.translator.translate("MouthView", "Missing Mouth: {0}").format(phoneme), QtGui.QFont("Swiss", 14))
+        self.mouth_view.fitInView(self.mouth_view.x(), self.mouth_view.y(), self.mouth_view.width(),
+                                  self.mouth_view.height())
 
 
 # end of class PronunciationDialog
@@ -213,7 +215,7 @@ def show_pronunciation_dialog(parent_window, phoneme_set, word_to_decode, prev_t
     dlg = PronunciationDialog(parent_window, phoneme_set)
     dlg.word_label.setText("{} {}".format(dlg.word_label.text(), word_to_decode))
     dlg.phoneme_ctrl.setText(prev_text)
-    dlg.exec_()
+    dlg.exec()
     if dlg.stop_decode:
         dlg.destroy()
         return -1
@@ -230,4 +232,4 @@ def show_pronunciation_dialog(parent_window, phoneme_set, word_to_decode, prev_t
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     dlg = PronunciationDialog()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

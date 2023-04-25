@@ -53,8 +53,9 @@ def subprocess_args(include_stdout=True):
     ret.update({'stdin': subprocess.PIPE,
                 'stderr': subprocess.PIPE,
                 'startupinfo': si,
-                'env': env })
+                'env': env})
     return ret
+
 
 class RhubarbTimeoutException(Exception):
     def __init__(self):
