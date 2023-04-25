@@ -13,9 +13,9 @@ import audioread
 import soundfile
 import struct
 
-from PySide2.QtCore import QCoreApplication
-from PySide2.QtCore import QUrl
-from PySide2.QtMultimedia import QMediaPlayer
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QUrl
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from cffi import FFI
 
 ffi = FFI()
@@ -25,73 +25,74 @@ try:
 except ImportError:
     import _thread as thread
 AudioSegment = None
+from pydub import AudioSegment
 
 
-class SoundPlayer:
-    def __init__(self, sound_file_path):
-        self.sound_file_chunk = None
-        self.sound_file_path = sound_file_path
-        """Instead of loading the whole file at once we load it in chunks to save memory."""
-        """This uses the soundfile library to read the file in chunks."""
-        self.sound_file = soundfile.SoundFile(self.sound_file_path)
-        self.sound_file_length = self.sound_file.duration
-        self.sound_file_channels = self.sound_file.channels
-        self.sound_file_sample_rate = self.sound_file.samplerate
-        self.sound_file_sample_width = self.sound_file.subtype
-        self.sound_file_sample_width_bytes = self.sound_file_sample_width / 8
-        self.player = QMediaPlayer()
-        self.player.setVolume(100)
-        self.player.setMedia(QUrl.fromLocalFile(self.sound_file_path))
-        while not self.is_loaded():
-            QCoreApplication.processEvents()
-            time.sleep(0.1)
-
-    def load_sound_file_chunk(self, start_time, end_time):
-        """Loads a chunk of the sound file."""
-        self.sound_file.seek(start_time)
-        self.sound_file_chunk = self.sound_file.read(end_time - start_time)
-        """Returns the chunk of the sound file."""
-        return self.sound_file_chunk
-
-    def calculate_rms_of_chunk(self, chunk):
-        """Calculates the rms of a chunk of the sound file."""
-        """Returns the rms of the chunk."""
-        return audioop.rms(chunk, self.sound_file_sample_width)
-
-    def play_sound_file_part(self, start_time, end_time):
-        """Plays a part of the sound file."""
-        self.player.setPosition(start_time * 1000)
-        self.player.play()
-        """Waits until the end of the part is reached using a thread."""
-        thread.start_new_thread(self.wait_until_end_of_part, (end_time,))
-
-    def wait_until_end_of_part(self, end_time):
-        """Waits until the end of the part is reached."""
-        while self.player.position() < end_time * 1000:
-            if not self.is_playing():
-                break
-            time.sleep(0.01)
-            QCoreApplication.processEvents()
-
-    def is_playing(self):
-        """Returns true if the sound file is playing."""
-        return self.player.state() == QMediaPlayer.PlayingState
-
-    def play_sound_file(self):
-        """Plays the sound file."""
-        self.player.play()
-
-    def stop_sound_file(self):
-        """Stops the sound file."""
-        self.player.stop()
-
-    def is_loaded(self):
-        """Returns true if the sound file is loaded."""
-        return self.player.mediaStatus() == QMediaPlayer.LoadedMediaStatus
-
-    def set_volume(self, volume):
-        """Sets the volume of the sound file."""
-        self.player.setVolume(volume)
+# class SoundPlayer:
+#     def __init__(self, sound_file_path):
+#         self.sound_file_chunk = None
+#         self.sound_file_path = sound_file_path
+#         """Instead of loading the whole file at once we load it in chunks to save memory."""
+#         """This uses the soundfile library to read the file in chunks."""
+#         self.sound_file = soundfile.SoundFile(self.sound_file_path)
+#         self.sound_file_length = self.sound_file.duration
+#         self.sound_file_channels = self.sound_file.channels
+#         self.sound_file_sample_rate = self.sound_file.samplerate
+#         self.sound_file_sample_width = self.sound_file.subtype
+#         self.sound_file_sample_width_bytes = self.sound_file_sample_width / 8
+#         self.player = QMediaPlayer()
+#         self.player.setVolume(100)
+#         self.player.setMedia(QUrl.fromLocalFile(self.sound_file_path))
+#         while not self.is_loaded():
+#             QCoreApplication.processEvents()
+#             time.sleep(0.1)
+#
+#     def load_sound_file_chunk(self, start_time, end_time):
+#         """Loads a chunk of the sound file."""
+#         self.sound_file.seek(start_time)
+#         self.sound_file_chunk = self.sound_file.read(end_time - start_time)
+#         """Returns the chunk of the sound file."""
+#         return self.sound_file_chunk
+#
+#     def calculate_rms_of_chunk(self, chunk):
+#         """Calculates the rms of a chunk of the sound file."""
+#         """Returns the rms of the chunk."""
+#         return audioop.rms(chunk, self.sound_file_sample_width)
+#
+#     def play_sound_file_part(self, start_time, end_time):
+#         """Plays a part of the sound file."""
+#         self.player.setPosition(start_time * 1000)
+#         self.player.play()
+#         """Waits until the end of the part is reached using a thread."""
+#         thread.start_new_thread(self.wait_until_end_of_part, (end_time,))
+#
+#     def wait_until_end_of_part(self, end_time):
+#         """Waits until the end of the part is reached."""
+#         while self.player.position() < end_time * 1000:
+#             if not self.is_playing():
+#                 break
+#             time.sleep(0.01)
+#             QCoreApplication.processEvents()
+#
+#     def is_playing(self):
+#         """Returns true if the sound file is playing."""
+#         return self.player.state() == QMediaPlayer.PlayingState
+#
+#     def play_sound_file(self):
+#         """Plays the sound file."""
+#         self.player.play()
+#
+#     def stop_sound_file(self):
+#         """Stops the sound file."""
+#         self.player.stop()
+#
+#     def is_loaded(self):
+#         """Returns true if the sound file is loaded."""
+#         return self.player.mediaStatus() == QMediaPlayer.LoadedMediaStatus
+#
+#     def set_volume(self, volume):
+#         """Sets the volume of the sound file."""
+#         self.player.setVolume(volume)
 
 
 class SoundPlayer:
@@ -100,6 +101,8 @@ class SoundPlayer:
         self.isplaying = False
         self.time = 0  # current audio position in frames
         self.audio = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.audio.setAudioOutput(self.audio_output)
         self.is_loaded = False
         self.volume = 100
         self.isplaying = False
@@ -107,7 +110,7 @@ class SoundPlayer:
         # File Loading is Asynchronous, so we need to be creative here, doesn't need to be duration but it works
         self.audio.durationChanged.connect(self.on_durationChanged)
         # self.decoder.finished.connect(self.decode_finished_signal)
-        self.audio.setMedia(QUrl.fromLocalFile(soundfile))
+        self.audio.setSource(QUrl.fromLocalFile(soundfile))
         # self.decoder.setSourceFilename(soundfile)  # strangely inconsistent file-handling
         # It will hang here forever if we don't process the events.
         self.audio_file = audioread.audio_open(self.soundfile)
@@ -131,6 +134,7 @@ class SoundPlayer:
                 else:
                     # TODO: Check if we have ffmpeg or avconv installed
                     AudioSegment.converter = "ffmpeg"
+            self.pydubfile = AudioSegment.from_file(self.soundfile, format=os.path.splitext(self.soundfile)[1][1:])
 
         self.isvalid = True
 
@@ -154,7 +158,7 @@ class SoundPlayer:
 
     def GetRMSAmplitude(self, time_pos, sample_dur):
         if AudioSegment:
-            return self.pydubfile[time_pos * 1000.0:(time_pos + sample_dur) * 1000.0].rms
+            return self.pydubfile[int(time_pos * 1000):int((time_pos + sample_dur) * 1000)].rms
         else:
             if time_pos > 0:
                 sample_pos = int(self.audio_file.samplerate * time_pos)
@@ -165,14 +169,14 @@ class SoundPlayer:
                                            *self.audio_data[sample_pos:sample_end]), 2)
 
     def is_playing(self):
-        if self.audio.state() == QMediaPlayer.PlayingState:
+        if self.audio.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             return True
         else:
             return False
 
     def set_cur_time(self, newtime):
-        self.time = newtime * 1000.0
-        self.audio.setPosition(self.time)
+        self.time = newtime * 1000
+        self.audio.setPosition(int(self.time))
 
     def stop(self):
         self.isplaying = False
@@ -184,7 +188,7 @@ class SoundPlayer:
 
     def set_volume(self, newvolume):
         self.volume = newvolume
-        self.audio.setVolume(self.volume)
+        self.audio_output.setVolume(self.volume)
 
     def play(self, arg):
         self.isplaying = True  # TODO: We should be able to replace isplaying with queries to self.audio.state()
@@ -194,7 +198,8 @@ class SoundPlayer:
         logging.info("Playing Segment")
         if not self.isplaying:  # otherwise this gets kinda echo-y
             self.isplaying = True
-            self.audio.setPosition(start * 1000.0)
+            print("Start Position: {}".format(start))
+            self.audio.setPosition(int(start * 1000))
             self.audio.play()
             thread.start_new_thread(self._wait_for_segment_end, (start, length))
 

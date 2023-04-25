@@ -64,13 +64,13 @@ save_wildcard = "{} files ({})".format(app_title, lipsync_extension)
 
 class DropFilter(QtCore.QObject):
     def eventFilter(self, obj, event):
-        if event.type() == QtCore.QEvent.DragEnter:
+        if event.type() == QtCore.QEvent.Type.DragEnter:
             if event.mimeData().hasUrls():
                 event.accept()
             else:
                 event.ignore()
             return True
-        elif event.type() == QtCore.QEvent.Drop:
+        elif event.type() == QtCore.QEvent.Type.Drop:
             if event.mimeData().hasUrls():
                 # event.accept()
                 for url in event.mimeData().urls():
@@ -102,7 +102,7 @@ def open_file_no_gui(path, parent):
     langman = LipsyncDoc.LanguageManager()
     langman.init_languages()
     ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-    config = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+    config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
     doc = LipsyncDoc.LipsyncDoc(langman, parent)
     if path.endswith(lipsync_extension_list):
         if path.endswith(lipsync_extension_list[0]):
@@ -147,7 +147,7 @@ class LipsyncFrame:
         self.main_window.setWindowTitle("%s" % app_title)
         self.main_window.lip_sync_frame = self
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.config = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        self.config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         self.config.setFallbacksEnabled(False)  # File only, not registry or or.
 
         tree_style = r'''QTreeView::branch:has-siblings:!adjoins-item {
@@ -312,8 +312,8 @@ class LipsyncFrame:
         self.zoom_factor = 1
         self.scroll_position = 0
         self.did_resize = False
-        self.wv_pen = QtGui.QPen(QtCore.Qt.darkBlue)
-        self.wv_brush = QtGui.QBrush(QtCore.Qt.blue)
+        self.wv_pen = QtGui.QPen(QtCore.Qt.GlobalColor.darkBlue)
+        self.wv_brush = QtGui.QBrush(QtCore.Qt.GlobalColor.blue)
         self.start_time = time.time()
         self.threadpool = QtCore.QThreadPool.globalInstance()
 
@@ -322,9 +322,9 @@ class LipsyncFrame:
         dlg.setText(error_message)
         dlg.setWindowTitle("Missing Phoneme Conversion")
         dlg.setWindowIcon(self.main_window.windowIcon())
-        dlg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        dlg.setDefaultButton(QtWidgets.QMessageBox.Ok)
-        dlg.setIcon(QtWidgets.QMessageBox.Information)
+        dlg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
+        dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Ok)
+        dlg.setIcon(QtWidgets.QMessageBox.Icon.Information)
         dlg.exec_()
 
     def change_stylesheet(self):
@@ -663,21 +663,21 @@ class LipsyncFrame:
                 return True
             dlg = QtWidgets.QMessageBox()
             dlg.setText("Save changes to this project?")
-            dlg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            dlg.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            dlg.setIcon(QtWidgets.QMessageBox.Question)
+            dlg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+            dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Yes)
+            dlg.setIcon(QtWidgets.QMessageBox.Icon.Question)
             result = dlg.exec_()
-            if result == QtWidgets.QMessageBox.Yes:
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.on_save()
                 if not self.doc.dirty:
                     self.config.setValue("LastFPS", str(self.doc.fps))
                     return True
                 else:
                     return False
-            elif result == QtWidgets.QMessageBox.No:
+            elif result == QtWidgets.QMessageBox.StandardButton.No:
                 self.config.setValue("LastFPS", str(self.doc.fps))
                 return True
-            elif result == QtWidgets.QMessageBox.Cancel:
+            elif result == QtWidgets.QMessageBox.StandardButton.Cancel:
                 return False
         else:
             return True
@@ -733,7 +733,7 @@ class LipsyncFrame:
                 self.doc.auto_recognize_phoneme()
                 # check for a .trans file with the same name as the doc
                 try:
-                    txt_file = open("{}.trans".format(path[0].rsplit('.', 1)[0]), 'r')  # TODO: Check if path is correct
+                    txt_file = open("{}.trans".format(path.rsplit('.', 1)[0]), 'r')  # TODO: Check if path is correct
                     for line in txt_file:
                         self.main_window.current_voice.tabBar().addTab(QtGui.QStandardItem(line))
                 except:
@@ -994,17 +994,17 @@ class LipsyncFrame:
                     dlg = QtWidgets.QMessageBox()
                     dlg.setText(self.translator.translate("LipsyncFrame",
                                                           "FPS is NOT 100 continue? (You will have issues downstream.)"))
-                    dlg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-                    dlg.setDefaultButton(QtWidgets.QMessageBox.Yes)
-                    dlg.setIcon(QtWidgets.QMessageBox.Question)
+                    dlg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+                    dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Yes)
+                    dlg.setIcon(QtWidgets.QMessageBox.Icon.Question)
                     result = dlg.exec_()
-                    if result == QtWidgets.QMessageBox.Yes:
+                    if result == QtWidgets.QMessageBox.StandardButton.Yes:
                         message = self.translator.translate("LipsyncFrame", "Export Lipsync Data (ALELO)")
                         default_file = "{}.txt".format(self.doc.soundPath.rsplit('.', 1)[0])
                         wildcard = self.translator.translate("LipsyncFrame", "Alelo timing files (*.txt)|*.txt")
-                    elif result == QtWidgets.QMessageBox.No:
+                    elif result == QtWidgets.QMessageBox.StandardButton.No:
                         return
-                    elif result == QtWidgets.QMessageBox.Cancel:
+                    elif result == QtWidgets.QMessageBox.StandardButton.Cancel:
                         return
                 else:
                     message = self.translator.translate("LipsyncFrame", "Export Lipsync Data (ALELO)")
@@ -1022,7 +1022,8 @@ class LipsyncFrame:
                                                                  message,
                                                                  default_file,
                                                                  wildcard,
-                                                                 options=QtWidgets.QFileDialog.DontUseNativeDialog)
+                                                                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+
             if file_path:
                 self.config.setValue("WorkingDir", os.path.dirname(file_path))
                 if exporter == "MOHO":

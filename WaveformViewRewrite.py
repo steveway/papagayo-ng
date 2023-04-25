@@ -70,7 +70,7 @@ class MovableButton(QtWidgets.QPushButton):
     def __init__(self, lipsync_object, wfv_parent, phoneme_offset=None):
         super(MovableButton, self).__init__(lipsync_object.text, None)
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
         self.title = lipsync_object.text
         self.node = lipsync_object
@@ -173,7 +173,7 @@ class MovableButton(QtWidgets.QPushButton):
 
     def mouseMoveEvent(self, event):
         if not self.wfv_parent.doc.sound.is_playing():
-            if event.buttons() == QtCore.Qt.LeftButton:
+            if event.buttons() == QtCore.Qt.MouseButton.LeftButton:
                 if not self.is_phoneme():
                     if (self.x() + event.x() >= self.convert_to_pixels(
                             self.node.end_frame) - self.get_handle_width()):
@@ -219,11 +219,11 @@ class MovableButton(QtWidgets.QPushButton):
                 try:
                     exec("dropAction = drag.exec(QtCore.Qt.MoveAction)")
                 except (SyntaxError, AttributeError):
-                    dropAction = drag.start(QtCore.Qt.MoveAction)
+                    dropAction = drag.exec(QtCore.Qt.DropAction.MoveAction)
 
     def mousePressEvent(self, event):
         if not self.wfv_parent.doc.sound.is_playing():
-            if event.button() == QtCore.Qt.RightButton and self.is_word():
+            if event.button() == QtCore.Qt.MouseButton.RightButton and self.is_word():
                 # manually enter the pronunciation for this word
                 list_of_new_phonemes = []
                 prev_phoneme_list = ""
@@ -247,7 +247,7 @@ class MovableButton(QtWidgets.QPushButton):
 
                         self.node.children = []
                         font_metrics = QtGui.QFontMetrics(font)
-                        text_width, text_height = font_metrics.width("Ojyg"), font_metrics.height() + 6
+                        text_width, text_height = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() + 6
                         for phoneme_count, p in enumerate(list_of_new_phonemes):
                             phoneme = LipSyncObject(object_type="phoneme", parent=self.node)
                             phoneme.text = p
@@ -342,14 +342,14 @@ class WaveformView(QtWidgets.QGraphicsView):
     def __init__(self, parent=None):
         super(WaveformView, self).__init__(parent)
         self.setScene(SceneWithDrag(self))
-        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        self.setViewportUpdateMode(QtWidgets.QGraphicsView.NoViewportUpdate)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.setViewportUpdateMode(QtWidgets.QGraphicsView.ViewportUpdateMode.NoViewportUpdate)
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
         self.translator = utilities.ApplicationTranslator()
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
         # Other initialization
         self.main_window = None
@@ -414,7 +414,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         e.accept()
 
     def mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
             possible_item = self.itemAt(event.pos())
             if type(possible_item) == QtWidgets.QGraphicsPolygonItem:
                 possible_item = None
@@ -575,7 +575,7 @@ class WaveformView(QtWidgets.QGraphicsView):
                                                              self.settings.value(
                                                                  "/Graphics/{}".format("playback_fill_color"),
                                                                  utilities.original_colors[
-                                                                     "playback_fill_color"])), QtCore.Qt.SolidPattern))
+                                                                     "playback_fill_color"])), QtCore.Qt.BrushStyle.SolidPattern))
             self.temp_play_marker.setZValue(1000)
             self.temp_play_marker.setOpacity(0.5)
             self.temp_play_marker.setVisible(True)
@@ -588,7 +588,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         background_brush = QtGui.QBrush(
             QtGui.QColor(self.settings.value("/Graphics/{}".format("bg_fill_color"),
                                              utilities.original_colors["bg_fill_color"])),
-            QtCore.Qt.SolidPattern)
+            QtCore.Qt.BrushStyle.SolidPattern)
         painter.fillRect(rect, background_brush)
         if self.doc is not None:
             pen = QtGui.QPen(
@@ -628,19 +628,21 @@ class WaveformView(QtWidgets.QGraphicsView):
                     frame += 1
             painter.drawLines(self.list_of_lines)
             for text_marker in list_of_textmarkers:
-                painter.drawText(text_marker[0], QtCore.Qt.AlignLeft, text_marker[1])
+                painter.drawText(text_marker[0], QtCore.Qt.AlignmentFlag.AlignLeft, text_marker[1])
 
     def start_create_waveform(self):
-        worker = utilities.Worker(self.create_waveform)
-        worker.signals.finished.connect(self.waveform_finished)
-        worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
+        # worker = utilities.Worker(self.create_waveform)
+        # worker.signals.finished.connect(self.waveform_finished)
+        # worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
 
         self.main_window.lip_sync_frame.status_progress.show()
         available_height = int(self.height() / 2)
         fitted_samples = self.amp * available_height
         self.main_window.lip_sync_frame.status_progress.setMaximum(len(fitted_samples))
-        self.threadpool.start(worker)
-        self.threadpool.waitForDone()
+        self.create_waveform(self.main_window.lip_sync_frame.status_bar_progress)
+        self.waveform_finished()
+        # self.threadpool.start(worker)
+        # self.threadpool.waitForDone()
 
     def waveform_finished(self):
         self.main_window.lip_sync_frame.status_progress.hide()
@@ -670,14 +672,14 @@ class WaveformView(QtWidgets.QGraphicsView):
         offset = 0  # available_height / 2
         temp_polygon = QtGui.QPolygonF()
         for x, y in enumerate(fitted_samples):
-            progress_callback.emit((x / 2))
+            progress_callback((x / 2))
             self.main_window.statusbar.showMessage(
                 self.translator.translate("WaveformView", "Preparing Waveform: {0}%").format(str(int(((x / 2) / len(fitted_samples)) * 100))))
             temp_polygon.append(QtCore.QPointF(x * self.sample_width, available_height - y + offset))
             if x < len(fitted_samples):
                 temp_polygon.append(QtCore.QPointF((x + 1) * self.sample_width, available_height - y + offset))
         for x, y in enumerate(fitted_samples[::-1]):
-            progress_callback.emit((len(fitted_samples) / 2) + (x / 2))
+            progress_callback((len(fitted_samples) / 2) + (x / 2))
             self.main_window.statusbar.showMessage(
                 self.translator.translate("WaveformView", "Preparing Waveform: {0}%").format(str(int(((x / 2) / len(fitted_samples)) * 100) + 50)))
             temp_polygon.append(QtCore.QPointF((len(fitted_samples) - x) * self.sample_width,
@@ -700,14 +702,15 @@ class WaveformView(QtWidgets.QGraphicsView):
 
     def start_create_movbuttons(self):
         if self.doc is not None:
-            worker = Worker(self.create_movbuttons)
-            worker.signals.finished.connect(self.movbuttons_finished)
-            worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
+            # worker = Worker(self.create_movbuttons)
+            # worker.signals.finished.connect(self.movbuttons_finished)
+            # worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
 
             self.main_window.lip_sync_frame.status_progress.show()
             self.main_window.lip_sync_frame.status_progress.setMaximum(self.doc.current_voice.num_children)
-            self.threadpool.start(worker)
-            self.threadpool.waitForDone()
+            # self.threadpool.start(worker)
+            # self.threadpool.waitForDone()
+            self.create_movbuttons(self.main_window.lip_sync_frame.status_bar_progress)
 
     def movbuttons_finished(self):
         self.main_window.lip_sync_frame.status_progress.hide()
@@ -827,15 +830,17 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.setUpdatesEnabled(True)
 
     def start_recalc(self, wait_for_done=True):
-        worker = utilities.Worker(self.recalc_waveform)
-        worker.signals.finished.connect(self.recalc_finished)
-        worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
+        # worker = utilities.Worker(self.recalc_waveform)
+        # worker.signals.finished.connect(self.recalc_finished)
+        # worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
 
         self.main_window.lip_sync_frame.status_progress.show()
         self.main_window.lip_sync_frame.status_progress.setMaximum(self.doc.sound.Duration())
-        self.threadpool.start(worker)
-        if wait_for_done:
-            self.threadpool.waitForDone()
+        # self.threadpool.start(worker)
+        # if wait_for_done:
+        #     self.threadpool.waitForDone()
+        self.recalc_waveform(self.main_window.lip_sync_frame.status_bar_progress)
+        self.recalc_finished()
 
     def recalc_finished(self):
         self.main_window.lip_sync_frame.status_progress.hide()
@@ -848,7 +853,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         max_amp = 0.0
         self.amp = []
         while time_pos < duration:
-            progress_callback.emit(time_pos)
+            progress_callback(time_pos)
             self.num_samples += 1
             amp = self.doc.sound.GetRMSAmplitude(time_pos, sample_dur)
             self.amp.append(amp)
@@ -883,18 +888,18 @@ class WaveformView(QtWidgets.QGraphicsView):
                                                                          "/Graphics/{}".format("playback_fill_color"),
                                                                          utilities.original_colors[
                                                                              "playback_fill_color"])),
-                                                                     QtCore.Qt.SolidPattern))
+                                                                     QtCore.Qt.BrushStyle.SolidPattern))
                     self.temp_play_marker.setZValue(1000)
                     self.temp_play_marker.setOpacity(0.5)
                     self.temp_play_marker.setVisible(False)
-                self.setViewportUpdateMode(QtWidgets.QGraphicsView.FullViewportUpdate)
+                self.setViewportUpdateMode(QtWidgets.QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
                 self.scene().update()
 
     def on_slider_change(self, value):
         self.scroll_position = value
 
     def wheelEvent(self, event):
-        self.scroll_position = self.horizontalScrollBar().value() + (event.delta() / 1.2)
+        self.scroll_position = self.horizontalScrollBar().value() + (event.angleDelta().y() / 1.2)
         self.horizontalScrollBar().setValue(self.scroll_position)
 
     def resize_finished(self):

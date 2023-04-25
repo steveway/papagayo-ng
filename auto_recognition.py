@@ -24,7 +24,7 @@ from allosaurus.app import read_recognizer
 class AutoRecognize:
     def __init__(self, sound_path):
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
         self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
         self.allo_model_path = Path(os.path.join(utilities.get_app_data_path(), "allosaurus_model"))
         self.temp_wave_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
@@ -84,7 +84,7 @@ class AutoRecognize:
                 break
             QtCore.QCoreApplication.processEvents()
             current_progress = (time.process_time() - start_time) * progress_multiplier
-            progress_callback.emit(current_progress)
+            progress_callback(current_progress)
         self.main_window.lip_sync_frame.status_progress.hide()
 
     def recognize_allosaurus(self):
@@ -94,11 +94,12 @@ class AutoRecognize:
         except TypeError:
             model = read_recognizer(lang_model)
         if self.main_window:
-            worker = utilities.Worker(self.update_progress)
+            # worker = utilities.Worker(self.update_progress)
             self.main_window.lip_sync_frame.status_progress.show()
             self.main_window.lip_sync_frame.status_progress.setMaximum(100)
-            worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
-            self.threadpool.start(worker)
+            # worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
+            # self.threadpool.start(worker)
+            self.update_progress(self.main_window.lip_sync_frame.status_bar_progress)
 
         results = model.recognize(self.temp_wave_file, timestamp=True,
                                   lang_id=self.settings.value("/VoiceRecognition/allo_lang_id", "eng"),
