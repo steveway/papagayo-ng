@@ -883,6 +883,7 @@ class LipsyncFrame:
             self.main_window.action_stop.setEnabled(True)
             self.doc.sound.set_cur_time(0)
             self.doc.sound.play(False)
+            # self.doc.sound.play_segment(0, self.doc.sound.Duration())
             self.timer = QtCore.QTimer()
             self.main_window.waveform_view.temp_play_marker.setVisible(True)
             self.timer.timeout.connect(self.on_play_tick)

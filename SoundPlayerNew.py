@@ -107,16 +107,16 @@ class SoundPlayer:
         self.volume = 100
         self.isplaying = False
         self.max_bits = 32768
-        # File Loading is Asynchronous, so we need to be creative here, doesn't need to be duration but it works
-        self.audio.durationChanged.connect(self.on_durationChanged)
+        self.audio.mediaStatusChanged.connect(self.media_status_changed)
         # self.decoder.finished.connect(self.decode_finished_signal)
         self.audio.setSource(QUrl.fromLocalFile(soundfile))
+        self.audio.setPlaybackRate(1)
         # self.decoder.setSourceFilename(soundfile)  # strangely inconsistent file-handling
-        # It will hang here forever if we don't process the events.
         self.audio_file = audioread.audio_open(self.soundfile)
         self.audio_data = []
         for buf in self.audio_file:
             self.audio_data.extend(struct.unpack("<{}H".format(int(len(list(buf)) / 2)), buf))
+        # It will hang here forever if we don't process the events.
         while not self.is_loaded:
             QCoreApplication.processEvents()
             time.sleep(0.1)
@@ -138,10 +138,17 @@ class SoundPlayer:
 
         self.isvalid = True
 
-        # self.audio.play()
+        # self.play(False)
 
     def get_samples(self, start_frame, end_frame):
         pass
+
+    def media_status_changed(self, status):
+        logging.info("Media status changed to {}!".format(status))
+        if status in (QMediaPlayer.MediaStatus.LoadedMedia, QMediaPlayer.MediaStatus.BufferedMedia, QMediaPlayer.MediaStatus.BufferingMedia):
+            self.is_loaded = True
+        else:
+            self.is_loaded = False
 
     def on_durationChanged(self, duration):
         logging.info("Duration changed to {}!".format(duration))
@@ -192,6 +199,7 @@ class SoundPlayer:
 
     def play(self, arg):
         self.isplaying = True  # TODO: We should be able to replace isplaying with queries to self.audio.state()
+        self.audio.setPosition(0)
         self.audio.play()
 
     def play_segment(self, start, length):

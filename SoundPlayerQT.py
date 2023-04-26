@@ -41,8 +41,9 @@ class SoundPlayer:
         # File Loading is Asynchronous, so we need to be creative here, doesn't need to be duration but it works
         self.audio.durationChanged.connect(self.on_durationChanged)
         self.decoder.finished.connect(self.decode_finished_signal)
+        # self.decoder.bufferReady.connect(self.decode_finished_signal)
         self.audio.setSource(QUrl.fromLocalFile(soundfile))
-        self.decoder.setSource(soundfile)  # strangely inconsistent file-handling
+        self.decoder.setSource(QUrl.fromLocalFile(soundfile))  # strangely inconsistent file-handling
         self.top_level_widget = None
 
         for widget in QtWidgets.QApplication.topLevelWidgets():
@@ -65,7 +66,7 @@ class SoundPlayer:
         self.isvalid = True
 
     def audioformat_to_datatype(self, audioformat):
-        num_bits = audioformat.bytesPerSample()
+        num_bits = audioformat.bytesPerSample() * 8
         signed = audioformat.sampleFormat()
         self.max_bits = 2 ** int(num_bits)
         if signed == QAudioFormat.SampleFormat.UInt8:
@@ -94,15 +95,17 @@ class SoundPlayer:
                         print("Decoding data")
                     # We use the Pointer Address to get a cffi Pointer to the data (hopefully)
                     cast_data = self.audioformat_to_datatype(tempdata.format())
-                    print(dir(tempdata))
-                    possible_data = ffi.cast("{1}[{0}]".format(tempdata.sampleCount(), cast_data),
-                                             int(tempdata.data()))
+                    # tempdata.detach()
+                    possible_data = tempdata.constData()
+                    # possible_data = ffi.cast("{1}[{0}]".format(tempdata.sampleCount(), cast_data),
+                    #                          int(tempdata.data()))
                     self.only_samples.extend(possible_data)
                     self.decoded_audio[self.decoder.position()] = [possible_data, len(possible_data), tempdata.byteCount(),
                                                                    tempdata.format()]
             progress_callback(self.decoder.position())
 
     def decode_finished_signal(self):
+        print("Decoding finished")
         self.decoding_is_finished = True
 
     def on_durationChanged(self, duration):
@@ -137,8 +140,8 @@ class SoundPlayer:
             return False
 
     def set_cur_time(self, newtime):
-        self.time = newtime * 1000.0
-        self.audio.setPosition(self.time)
+        self.time = newtime * 1000
+        self.audio.setPosition(int(self.time))
 
     def stop(self):
         self.isplaying = False
