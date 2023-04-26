@@ -2,6 +2,9 @@ import audioop
 import logging
 import platform
 import time
+
+from PySide6.QtWidgets import QApplication
+
 import utilities
 import os
 
@@ -145,7 +148,8 @@ class SoundPlayer:
 
     def media_status_changed(self, status):
         logging.info("Media status changed to {}!".format(status))
-        if status in (QMediaPlayer.MediaStatus.LoadedMedia, QMediaPlayer.MediaStatus.BufferedMedia, QMediaPlayer.MediaStatus.BufferingMedia):
+        if status in (QMediaPlayer.MediaStatus.LoadedMedia, QMediaPlayer.MediaStatus.BufferedMedia,
+                      QMediaPlayer.MediaStatus.BufferingMedia):
             self.is_loaded = True
         else:
             self.is_loaded = False
@@ -222,3 +226,9 @@ class SoundPlayer:
             time.sleep(0.001)
         self.audio.stop()
         self.isplaying = False
+
+
+if __name__ == "__main__":
+    app = QApplication([])
+    soundplayer = SoundPlayer(r"E:\PyCharmProjects\papagayo_clean\Tutorial Files\lame.wav", None)
+    soundplayer.play(False)
