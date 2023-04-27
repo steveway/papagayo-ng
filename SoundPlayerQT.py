@@ -30,13 +30,18 @@ class SoundPlayer:
         self.audio_output = QAudioOutput()
         self.audio.setAudioOutput(self.audio_output)
         self.decoder = QAudioDecoder()
+        self.audio_format = QAudioFormat()
+        self.audio_format.setSampleFormat(QAudioFormat.SampleFormat.UInt8)
+        self.audio_format.setSampleRate(16000)
+        self.audio_format.setChannelCount(1)
+        self.decoder.setAudioFormat(self.audio_format)
         self.is_loaded = False
         self.volume = 100
         self.isplaying = False
         self.decoded_audio = {}
         self.only_samples = []
         self.decoding_is_finished = False
-        self.max_bits = 32768
+        self.max_bits = 2 ** 8
         self.signed = False
         # File Loading is Asynchronous, so we need to be creative here, doesn't need to be duration but it works
         self.audio.durationChanged.connect(self.on_durationChanged)
@@ -63,22 +68,33 @@ class SoundPlayer:
         self.np_data = np.array(self.only_samples)
         if not self.signed:  # don't ask me why this fixes 8 bit samples...
             self.np_data = self.np_data - self.max_bits / 2
+        else:
+            self.np_data = self.np_data / self.max_bits
         self.isvalid = True
 
     def audioformat_to_datatype(self, audioformat):
         num_bits = audioformat.bytesPerSample() * 8
         signed = audioformat.sampleFormat()
-        self.max_bits = 2 ** int(num_bits)
-        if signed == QAudioFormat.SampleFormat.UInt8:
-            self.signed = False
-            return "uint{0}_t".format(str(num_bits))
-        elif signed in [QAudioFormat.SampleFormat.Int16, QAudioFormat.SampleFormat.Int32]:
-            self.signed = True
-            self.max_bits = int(self.max_bits / 2)
-            return "int{0}_t".format(str(num_bits))
-        else:
-            logging.error("Unsupported audio format")
-            return None
+        # print("num_bits: {0}, signed: {1}".format(num_bits, signed))
+        # if signed == QAudioFormat.SampleFormat.Float:
+        #     self.signed = False
+        #     self.max_bits = 1
+        #     return "float{0}_t".format(str(num_bits))
+        self.max_bits = 2 ** int(8)
+        self.signed = False
+        return "uint{0}_t".format(str(8))
+
+        # self.max_bits = 2 ** int(num_bits)
+        # if signed == QAudioFormat.SampleFormat.UInt8:
+        #     self.signed = False
+        #     return "uint{0}_t".format(str(num_bits))
+        # elif signed in [QAudioFormat.SampleFormat.Int16, QAudioFormat.SampleFormat.Int32]:
+        #     self.signed = True
+        #     self.max_bits = int(self.max_bits / 2)
+        #     return "int{0}_t".format(str(num_bits))
+        # else:
+        #     logging.error("Unsupported audio format")
+        #     return None
 
     def decode_audio(self, progress_callback):
         self.decoder.start()
@@ -129,6 +145,7 @@ class SoundPlayer:
         samples = self.np_data[int(time_start):int(time_end)]
 
         if len(samples):
+            print(np.sqrt(np.mean(samples ** 2)))
             return np.sqrt(np.mean(samples ** 2))
         else:
             return 1

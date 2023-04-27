@@ -36,7 +36,7 @@ from LipsyncDoc import *
 
 def normalize(x):
     x = np.asarray(x)
-    return ((x - x.min(initial=0)) / (np.ptp(x))) * 0.8
+    return ((x - x.min()) / (np.ptp(x))) * 0.8
 
 
 font = QtGui.QFont("Swiss", 6)
@@ -860,7 +860,9 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.amp.append(amp)
             max_amp = max(max_amp, amp)
             time_pos += sample_dur
+        print("Amplitude Array before: {0}".format(self.amp))
         self.amp = normalize(self.amp)
+        print("Amplitude Array after: {0}".format(self.amp))
 
     def set_document(self, document, force=False, clear_scene=False):
         if document != self.doc or force:
