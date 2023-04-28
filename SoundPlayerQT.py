@@ -1,12 +1,14 @@
 from PySide6 import QtWidgets
 
 import utilities
+import sys
+sys.stderr = open("testerrors.txt", "w")
 import logging
 import time
 
-from PySide6.QtMultimedia import QMediaPlayer, QAudioFormat, QAudioBuffer, QAudioDecoder
+from PySide6.QtMultimedia import QMediaPlayer, QAudioFormat, QAudioBuffer, QAudioDecoder, QMediaDevices, QAudioSink
 from PySide6.QtMultimedia import QAudioOutput
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QBuffer, QIODevice, QByteArray
 from PySide6.QtCore import QUrl
 
 from cffi import FFI
@@ -32,14 +34,20 @@ class SoundPlayer:
         self.decoder = QAudioDecoder()
         self.audio_format = QAudioFormat()
         self.audio_format.setSampleFormat(QAudioFormat.SampleFormat.UInt8)
-        self.audio_format.setSampleRate(16000)
+        self.audio_format.setSampleRate(44100)
         self.audio_format.setChannelCount(1)
         self.decoder.setAudioFormat(self.audio_format)
+        self.audio_device = QMediaDevices.audioOutputs()[0]
+        self.audio_sink = QAudioSink(self.audio_device, self.audio_format)
+        print(self.audio_device)
+        print(self.audio_sink)
+        self.audio_sink_data = QBuffer()
         self.is_loaded = False
         self.volume = 100
         self.isplaying = False
         self.decoded_audio = {}
         self.only_samples = []
+        self.num_channels = 1
         self.decoding_is_finished = False
         self.max_bits = 2 ** 8
         self.signed = False
@@ -66,23 +74,40 @@ class SoundPlayer:
         self.decode_audio(self.top_level_widget.lip_sync_frame.status_bar_progress)
         self.top_level_widget.lip_sync_frame.status_progress.hide()
         self.np_data = np.array(self.only_samples)
-        if not self.signed:  # don't ask me why this fixes 8 bit samples...
-            self.np_data = self.np_data - self.max_bits / 2
-        else:
-            self.np_data = self.np_data / self.max_bits
+        self.np_data = self.np_data - self.max_bits / 2
+        self.audio_sink_data.setData(bytes(self.only_samples))
+        self.audio_sink_data.open(QIODevice.ReadOnly)
         self.isvalid = True
 
     def audioformat_to_datatype(self, audioformat):
+        self.num_channels = audioformat.channelCount()
         num_bits = audioformat.bytesPerSample() * 8
         signed = audioformat.sampleFormat()
+        print("Number of Channels: {0}".format(audioformat.channelCount()))
+        print("AudioFormat: {0}".format(audioformat))
         # print("num_bits: {0}, signed: {1}".format(num_bits, signed))
         # if signed == QAudioFormat.SampleFormat.Float:
         #     self.signed = False
         #     self.max_bits = 1
         #     return "float{0}_t".format(str(num_bits))
-        self.max_bits = 2 ** int(8)
-        self.signed = False
-        return "uint{0}_t".format(str(8))
+        if signed == QAudioFormat.SampleFormat.UInt8:
+            print("UInt8")
+            print("num_bits: {0}".format(num_bits))
+            self.max_bits = 2 ** int(8)
+            self.signed = False
+            return "uint{0}_t".format(str(num_bits))
+        elif signed == QAudioFormat.SampleFormat.Int16:
+            print("Int16")
+            print("num_bits: {0}".format(num_bits))
+            self.max_bits = 2 ** int(16)
+            self.signed = True
+            return "int{0}_t".format(str(num_bits))
+        elif signed == QAudioFormat.SampleFormat.Float:
+            print("Float")
+            print("num_bits: {0}".format(num_bits))
+            self.max_bits = 1
+            self.signed = False
+            return "float"
 
         # self.max_bits = 2 ** int(num_bits)
         # if signed == QAudioFormat.SampleFormat.UInt8:
@@ -112,10 +137,16 @@ class SoundPlayer:
                     # We use the Pointer Address to get a cffi Pointer to the data (hopefully)
                     cast_data = self.audioformat_to_datatype(tempdata.format())
                     # tempdata.detach()
-                    possible_data = tempdata.constData()
+                    if self.num_channels == 1:
+                        possible_data = tempdata.constData()
+                    else:
+                        possible_data = tempdata.constData()
+                        # possible_data = tempdata.constData()
                     # possible_data = ffi.cast("{1}[{0}]".format(tempdata.sampleCount(), cast_data),
                     #                          int(tempdata.data()))
+                    # temp_bytes = QByteArray.fromRawData(possible_data, tempdata.byteCount())
                     self.only_samples.extend(possible_data)
+                    #self.only_samples.append(tempdata.constData(), tempdata.byteCount())
                     self.decoded_audio[self.decoder.position()] = [possible_data, len(possible_data), tempdata.byteCount(),
                                                                    tempdata.format()]
             progress_callback(self.decoder.position())
@@ -174,14 +205,21 @@ class SoundPlayer:
 
     def play(self, arg):
         self.isplaying = True  # TODO: We should be able to replace isplaying with queries to self.audio.state()
-        self.audio.play()
+        self.audio_sink.start(self.audio_sink_data)
+        #self.audio.play()
 
     def play_segment(self, start, length):
         if not self.is_playing():  # otherwise this gets kinda echo-y
             self.isplaying = True
             self.audio.setPosition(int(start * 1000))
-            self.audio.play()
-            thread.start_new_thread(self._wait_for_segment_end, (start, length))
+            divider = len(self.only_samples) / self.Duration()
+            start_pos = int(start * divider)
+            end_pos = int((start + length) * divider)
+            self.audio_sink_data.setData(bytes(self.only_samples[start_pos:end_pos]))
+            self.audio_sink_data.open(QIODevice.ReadOnly)
+            self.audio_sink.start(self.audio_sink_data)
+            # self.audio.play()
+            # thread.start_new_thread(self._wait_for_segment_end, (start, length))
 
     def _wait_for_segment_end(self, newstart, newlength):
         start = newstart * 1000.0
