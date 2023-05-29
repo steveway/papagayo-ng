@@ -16,9 +16,9 @@ import audioread
 import soundfile
 import struct
 
-from PySide6.QtCore import QCoreApplication, QBuffer
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtCore import QUrl
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices, QAudioSink
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from cffi import FFI
 
 ffi = FFI()
