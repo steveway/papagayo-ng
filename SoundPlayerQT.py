@@ -4,9 +4,10 @@ import utilities
 import logging
 import time
 
-from PySide6.QtMultimedia import QMediaPlayer, QAudioFormat, QAudioBuffer, QAudioDecoder
+from PySide6.QtMultimedia import QMediaPlayer, QAudioFormat, QAudioBuffer, QAudioDecoder, QMediaDevices, QAudioSink, \
+    QAudio
 from PySide6.QtMultimedia import QAudioOutput
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QIODevice, QBuffer
 from PySide6.QtCore import QUrl
 
 from cffi import FFI
@@ -35,6 +36,9 @@ class SoundPlayer:
         self.audio_format.setSampleRate(16000)
         self.audio_format.setChannelCount(1)
         self.decoder.setAudioFormat(self.audio_format)
+        self.audio_device = QMediaDevices.audioOutputs()[0]
+        self.audio_sink = QAudioSink(self.audio_device, self.audio_format)
+        self.audio_sink_data = QBuffer()
         self.is_loaded = False
         self.volume = 100
         self.isplaying = False
@@ -70,6 +74,8 @@ class SoundPlayer:
             self.np_data = self.np_data - self.max_bits / 2
         else:
             self.np_data = self.np_data / self.max_bits
+        self.audio_sink_data.setData(bytes(self.only_samples))
+        self.audio_sink_data.open(QIODevice.ReadOnly)
         self.isvalid = True
 
     def audioformat_to_datatype(self, audioformat):
@@ -151,37 +157,58 @@ class SoundPlayer:
             return 1
 
     def is_playing(self):
-        if self.audio.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if self.audio_sink.state() == QAudio.State.ActiveState:
             return True
         else:
             return False
+        # if self.audio.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        #     return True
+        # else:
+        #     return False
 
     def set_cur_time(self, newtime):
         self.time = newtime * 1000
+
         self.audio.setPosition(int(self.time))
 
     def stop(self):
         self.isplaying = False
+        self.audio_sink.stop()
         self.audio.stop()
 
     def current_time(self):
-        self.time = self.audio.position() / 1000.0
+        self.time = self.audio_sink.processedUSecs() / 1000.0 / 1000.0
+        print(self.time)
+        # self.time = self.audio.position() / 1000.0
         return self.time
 
     def set_volume(self, newvolume):
         self.volume = newvolume
+        self.audio_sink.setVolume(self.volume)
         self.audio_output.setVolume(self.volume)
 
     def play(self, arg):
         self.isplaying = True  # TODO: We should be able to replace isplaying with queries to self.audio.state()
-        self.audio.play()
+        self.audio_sink.start(self.audio_sink_data)
+        # self.audio.play()
 
     def play_segment(self, start, length):
         if not self.is_playing():  # otherwise this gets kinda echo-y
             self.isplaying = True
-            self.audio.setPosition(int(start * 1000))
-            self.audio.play()
-            thread.start_new_thread(self._wait_for_segment_end, (start, length))
+            divider = len(self.only_samples) / self.Duration()
+            start_pos = int(start * divider)
+            end_pos = int((start + length) * divider)
+            self.audio_sink_data.setData(bytes(self.only_samples[start_pos:end_pos]))
+            self.audio_sink_data.open(QIODevice.ReadOnly)
+            self.audio_sink.stateChanged.connect(self.audio_sink_finished)
+            self.audio_sink.start(self.audio_sink_data)
+            # self.audio.setPosition(int(start * 1000))
+            #
+            # self.audio.play()
+            # thread.start_new_thread(self._wait_for_segment_end, (start, length))
+    def audio_sink_finished(self):
+        if self.audio_sink.state() == QAudio.State.StoppedState:
+            self.isplaying = False
 
     def _wait_for_segment_end(self, newstart, newlength):
         start = newstart * 1000.0

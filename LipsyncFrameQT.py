@@ -909,6 +909,7 @@ class LipsyncFrame:
         if (self.doc is not None) and (self.doc.sound is not None):
             if self.doc.sound.is_playing():
                 cur_frame = int(self.doc.sound.current_time() * self.doc.fps)
+                print(cur_frame)
                 if self.cur_frame != cur_frame:
                     self.cur_frame = cur_frame
                     self.main_window.mouth_view.set_frame(self.cur_frame)
