@@ -101,14 +101,12 @@ from pydub import AudioSegment
 class SoundPlayer:
     def __init__(self, soundfile, parent):
         self.soundfile = soundfile
-        self.isplaying = False
         self.time = 0  # current audio position in frames
         self.audio = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.audio.setAudioOutput(self.audio_output)
         self.is_loaded = False
         self.volume = 100
-        self.isplaying = False
         self.max_bits = 32768
         self.audio.mediaStatusChanged.connect(self.media_status_changed)
         # self.decoder.finished.connect(self.decode_finished_signal)
@@ -190,7 +188,6 @@ class SoundPlayer:
         self.audio.setPosition(int(self.time))
 
     def stop(self):
-        self.isplaying = False
         self.audio.stop()
 
     def current_time(self):
@@ -202,14 +199,15 @@ class SoundPlayer:
         self.audio_output.setVolume(self.volume)
 
     def play(self, arg):
-        self.isplaying = True  # TODO: We should be able to replace isplaying with queries to self.audio.state()
         self.audio.setPosition(0)
         self.audio.play()
 
+    def is_playing(self):
+        return self.audio.isPlaying()
+
     def play_segment(self, start, length):
         logging.info("Playing Segment")
-        if not self.isplaying:  # otherwise this gets kinda echo-y
-            self.isplaying = True
+        if not self.is_playing():  # otherwise this gets kinda echo-y
             print("Start Position: {}".format(start))
             self.audio.setPosition(int(start * 1000))
             self.audio.play()
@@ -220,12 +218,11 @@ class SoundPlayer:
         length = newlength * 1000.0
         end = start + length
         while self.audio.position() < end:
-            if not self.isplaying:
+            if not self.is_playing():
                 return 0
             QCoreApplication.processEvents()
-            time.sleep(0.001)
+            time.sleep(0.1)
         self.audio.stop()
-        self.isplaying = False
 
 
 if __name__ == "__main__":

@@ -313,6 +313,7 @@ class LipsyncFrame:
         self.wv_pen = QtGui.QPen(QtCore.Qt.GlobalColor.darkBlue)
         self.wv_brush = QtGui.QBrush(QtCore.Qt.GlobalColor.blue)
         self.start_time = time.time()
+        self.start_time_for_fps_calc = time.time()
         self.threadpool = QtCore.QThreadPool.globalInstance()
 
     def show_error_dialog(self, error_message):
@@ -888,7 +889,10 @@ class LipsyncFrame:
             self.main_window.waveform_view.temp_play_marker.setVisible(True)
             self.timer.timeout.connect(self.on_play_tick)
             # self.connect(self.timer, None, self.on_play_tick)
-            self.timer.start(250.0 / self.doc.fps)
+            self.start_time = time.time()
+            self.timer.start(1000.0 / self.doc.fps)
+
+            # self.doc.sound.audio.positionChanged.connect(self.move_marker_callback)
 
     def on_stop(self, event=None):
         if (self.doc is not None) and (self.doc.sound is not None):
@@ -906,27 +910,55 @@ class LipsyncFrame:
             QtCore.QCoreApplication.processEvents()
 
     def on_play_tick(self, event=None):
+        print(f"Called Timer Function at : {time.time()}")
         if (self.doc is not None) and (self.doc.sound is not None):
             if self.doc.sound.is_playing():
                 cur_frame = int(self.doc.sound.current_time() * self.doc.fps)
+                calculated_time = time.time() - self.start_time
+                calculated_frame = round(calculated_time * self.doc.fps)
+                if calculated_frame > cur_frame:
+                    cur_frame = calculated_frame
                 if self.cur_frame != cur_frame:
                     self.cur_frame = cur_frame
                     self.main_window.mouth_view.set_frame(self.cur_frame)
                     self.main_window.waveform_view.set_frame(self.cur_frame)
                     try:
-                        fps = 1.0 / (time.time() - self.start_time)
+                        fps = 1.0 / (time.time() - self.start_time_for_fps_calc)
                     except ZeroDivisionError:
                         fps = 60
                     self.main_window.statusbar.showMessage(self.translator.translate("LipsyncFrame",
                                                                                      "Frame: {:d} FPS: {:d}".format(
                                                                                          (cur_frame + 1), int(fps))))
                     self.main_window.waveform_view.scroll_position = self.main_window.waveform_view.horizontalScrollBar().value()
-                    self.start_time = time.time()
+                    self.start_time_for_fps_calc = time.time()
             else:
                 self.main_window.waveform_view.temp_play_marker.setVisible(False)
                 self.on_stop()
                 self.timer.stop()
                 del self.timer
+
+    def move_marker_callback(self, position):
+        cur_frame = position // self.doc.fps
+        print(f"Current Position: {position}")
+        print(f"Frame Position: {cur_frame}")
+        calculated_time = time.time() - self.start_time
+        calculated_frame = round(calculated_time * self.doc.fps)
+        print(f"Calculated Time: {calculated_time}")
+        print(f"Calculated Frame: {calculated_frame}")
+        if calculated_frame > cur_frame:
+            cur_frame = calculated_frame
+        if self.cur_frame != cur_frame:
+            self.cur_frame = cur_frame
+            self.main_window.mouth_view.set_frame(self.cur_frame)
+            self.main_window.waveform_view.set_frame(self.cur_frame)
+            try:
+                fps = 1.0 / (time.time() - self.start_time)
+            except ZeroDivisionError:
+                fps = 60
+            self.main_window.statusbar.showMessage(self.translator.translate("LipsyncFrame",
+                                                                             "Frame: {:d} FPS: {:d}".format(
+                                                                                 (cur_frame + 1), int(fps))))
+            self.main_window.waveform_view.scroll_position = self.main_window.waveform_view.horizontalScrollBar().value()
 
     def change_volume(self, e):
         if self.doc and self.doc.sound:
