@@ -16,7 +16,7 @@ a = Analysis(['papagayo-ng.py'],
              pathex=['./'],
              binaries=[],
              datas=[],
-             hiddenimports=['PySide2.QtXml', 'PySide2.QtPrintSupport', 'numpy.random.common', 'numpy.random.bounded_integers', 'numpy.random.entropy', 'pkg_resources.py2_warn', 'audioread', 'pydub'],
+             hiddenimports=['PySide6.QtXml', 'PySide6.QtPrintSupport', 'numpy.random.common', 'numpy.random.bounded_integers', 'numpy.random.entropy', 'pkg_resources.py2_warn'],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
@@ -43,7 +43,7 @@ useless_libs = (
         "QtScxml",
         "QtMultimedia",
         "QtWebEngine",
-        "Qt5WebEngineCore"
+        "Qt6WebEngineCore"
     )
 for d in a.datas:
     if d[0].startswith(useless_libs):
@@ -100,7 +100,7 @@ else:
               bootloader_ignore_signals=False,
               strip=False,
               upx=False,
-              upx_exclude="qwindows.dll, pyside2.abi3.dll, qtcore.pyd, qtgui.pyd, qtwidgets.pyd, qt5core.dll, qt5gui.dll, qt5svg.dll, qt5widgets.dll, qt5xml.dll",
+              upx_exclude="qwindows.dll, pyside6.abi3.dll, qtcore.pyd, qtgui.pyd, qtwidgets.pyd, qt6core.dll, qt6gui.dll, qt6svg.dll, qt6widgets.dll, qt6xml.dll",
               runtime_tmpdir=None,
               console=False)
 
@@ -117,7 +117,7 @@ shutil.copytree("./phonemes", os.path.join(installer_folder , "phonemes"))
 shutil.copytree("./rsrc", os.path.join(installer_folder , "rsrc"))
 if with_rhubarb:
     shutil.copytree("./rhubarb", os.path.join(installer_folder , "rhubarb"))
-shutil.copy("../papagayo-ng.nsi", os.path.join(installer_folder , "papagayo-ng.nsi"))
+shutil.copy("./papagayo-ng.nsi", os.path.join(installer_folder , "papagayo-ng.nsi"))
 shutil.copy("./papagayo-ng.ico", os.path.join(installer_folder , "papagayo-ng.ico"))
 shutil.copy("./ipa_cmu.json", os.path.join(installer_folder , "ipa_cmu.json"))
 shutil.copy("./version_information.txt", os.path.join(installer_folder , "version_information.txt"))
