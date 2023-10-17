@@ -910,7 +910,6 @@ class LipsyncFrame:
             QtCore.QCoreApplication.processEvents()
 
     def on_play_tick(self, event=None):
-        print(f"Called Timer Function at : {time.time()}")
         if (self.doc is not None) and (self.doc.sound is not None):
             if self.doc.sound.is_playing():
                 cur_frame = int(self.doc.sound.current_time() * self.doc.fps)
