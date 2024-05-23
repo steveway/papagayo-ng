@@ -856,13 +856,11 @@ class WaveformView(QtWidgets.QGraphicsView):
         while time_pos < duration:
             progress_callback(time_pos)
             self.num_samples += 1
-            amp = self.doc.sound.GetRMSAmplitude(time_pos, sample_dur)
+            amp = self.doc.sound.get_rms_amplitude(time_pos, sample_dur)
             self.amp.append(amp)
             max_amp = max(max_amp, amp)
             time_pos += sample_dur
-        print("Amplitude Array before: {0}".format(self.amp))
         self.amp = normalize(self.amp)
-        print("Amplitude Array after: {0}".format(self.amp))
 
     def set_document(self, document, force=False, clear_scene=False):
         if document != self.doc or force:

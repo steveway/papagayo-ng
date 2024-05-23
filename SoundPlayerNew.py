@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QApplication
 import utilities
 import os
 import numpy as np
+
 if platform.system() == "Windows":
     os.environ['QT_MULTIMEDIA_PREFERRED_PLUGINS'] = 'windowsmediafoundation'
 if utilities.get_app_data_path() not in os.environ['PATH']:
@@ -25,14 +26,21 @@ try:
 except ImportError:
     import _thread as thread
 
+
 class SoundPlayer:
     def __init__(self, soundfile, parent):
         self.soundfile = soundfile
         self.time = 0  # current audio position in frames
         self.audio = QMediaPlayer()
+        print(self.audio.error())
         self.audio_output = QAudioOutput()
         self.audio.setAudioOutput(self.audio_output)
         self.decoder = QAudioDecoder()
+        self.isvalid = False
+        print(self.decoder.isSupported())
+        if self.decoder.error != QAudioDecoder.NoError:
+            logging.error("AudioDecoder Error: " + self.decoder.errorString())
+            return
         self.audio_format = QAudioFormat()
         self.audio_format.setSampleFormat(QAudioFormat.SampleFormat.UInt8)
         self.audio_format.setSampleRate(44100)
@@ -69,6 +77,7 @@ class SoundPlayer:
         while not self.is_loaded:
             QCoreApplication.processEvents()
             time.sleep(0.1)
+
         self.decode_audio(self.top_level_widget.lip_sync_frame.status_bar_progress)
         self.top_level_widget.lip_sync_frame.status_progress.hide()
         self.np_data = np.array(self.only_samples)
@@ -109,6 +118,7 @@ class SoundPlayer:
             self.max_bits = 1
             self.signed = False
             return "float"
+
     def decode_audio(self, progress_callback):
         self.decoder.start()
         while not self.decoding_is_finished:
@@ -135,13 +145,15 @@ class SoundPlayer:
                     # temp_bytes = QByteArray.fromRawData(possible_data, tempdata.byteCount())
                     self.only_samples.extend(possible_data)
                     #self.only_samples.append(tempdata.constData(), tempdata.byteCount())
-                    self.decoded_audio[self.decoder.position()] = [possible_data, len(possible_data), tempdata.byteCount(),
+                    self.decoded_audio[self.decoder.position()] = [possible_data, len(possible_data),
+                                                                   tempdata.byteCount(),
                                                                    tempdata.format()]
             progress_callback(self.decoder.position())
 
     def decode_finished_signal(self):
         print("Decoding finished")
         self.decoding_is_finished = True
+
     def media_status_changed(self, status):
         logging.info("Media status changed to {}!".format(status))
         if status in (QMediaPlayer.MediaStatus.LoadedMedia, QMediaPlayer.MediaStatus.BufferedMedia,
@@ -162,7 +174,6 @@ class SoundPlayer:
 
     def Duration(self):
         return self.audio.duration() / 1000.0
-
 
     def GetRMSAmplitude(self, time_pos, sample_dur):
         # time_start = time_pos * (len(self.only_samples)/self.Duration())

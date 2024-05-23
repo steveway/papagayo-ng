@@ -2,21 +2,24 @@
 import shutil
 import os
 import sys
+
 standalone_exe = True
 block_cipher = None
 with_rhubarb = False
 
 if sys.platform == "win32":
     import pyinstaller_versionfile
+
     pyinstaller_versionfile.create_versionfile_from_input_file(
-    output_file="./file_version_info.txt",
-    input_file="./version_information.txt")
+        output_file="./file_version_info.txt",
+        input_file="./version_information.txt")
 
 a = Analysis(['papagayo-ng.py'],
              pathex=['./'],
              binaries=[],
              datas=[],
-             hiddenimports=['PySide6.QtXml', 'PySide6.QtPrintSupport', 'numpy.random.common', 'numpy.random.bounded_integers', 'numpy.random.entropy', 'pkg_resources.py2_warn'],
+             hiddenimports=['PySide6.QtXml', 'PySide6.QtPrintSupport', 'numpy.random.common',
+                            'numpy.random.bounded_integers', 'numpy.random.entropy', 'pkg_resources.py2_warn'],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
@@ -31,20 +34,20 @@ for d in a.datas:
         break
 
 useless_libs = (
-        "Qt3D",
-        "QtDesigner",
-        "QtQuick",
-        "QtShader",
-        "QtVirt",
-        "QtSql",
-        "QtData",
-        "QtCharts",
-        "QtLabs",
-        "QtScxml",
-        "QtMultimedia",
-        "QtWebEngine",
-        "Qt6WebEngineCore"
-    )
+    "Qt3D",
+    "QtDesigner",
+    "QtQuick",
+    "QtShader",
+    "QtVirt",
+    "QtSql",
+    "QtData",
+    "QtCharts",
+    "QtLabs",
+    "QtScxml",
+    "QtMultimedia",
+    "QtWebEngine",
+    "Qt6WebEngineCore"
+)
 for d in a.datas:
     if d[0].startswith(useless_libs):
         a.datas.remove(d)
@@ -55,7 +58,7 @@ if sys.platform == "win32":
                     datas=a.datas)
 
 pyz = PYZ(a.pure, a.zipped_data,
-             cipher=block_cipher)
+          cipher=block_cipher)
 if not standalone_exe:
     exe = EXE(pyz,
               a.scripts,
@@ -70,7 +73,7 @@ if not standalone_exe:
               upx=False,
               upx_exclude="vcruntime140.dll, qwindows.dll",
               runtime_tmpdir=None,
-              console=False )
+              console=False)
     coll = COLLECT(
         exe,
         splash.binaries,
@@ -95,12 +98,12 @@ else:
               [],
               name='papagayo-ng',
               icon='./papagayo-ng.ico',
-              version= spec_file,
+              version=spec_file,
               debug=False,
               bootloader_ignore_signals=False,
               strip=False,
-              upx=False,
-              upx_exclude="qwindows.dll, pyside6.abi3.dll, qtcore.pyd, qtgui.pyd, qtwidgets.pyd, qt6core.dll, qt6gui.dll, qt6svg.dll, qt6widgets.dll, qt6xml.dll",
+              upx=True,
+              upx_exclude="Qt*.dll",
               runtime_tmpdir=None,
               console=False)
 
@@ -109,16 +112,16 @@ if os.path.exists(installer_folder):
     shutil.rmtree(installer_folder)
 os.mkdir(installer_folder)
 if sys.platform == "win32":
-    shutil.move("./dist/papagayo-ng.exe", os.path.join(installer_folder , "papagayo-ng.exe"))
+    shutil.move("./dist/papagayo-ng.exe", os.path.join(installer_folder, "papagayo-ng.exe"))
 else:
-    shutil.move("./dist/papagayo-ng", os.path.join(installer_folder , "papagayo-ng"))
-shutil.copytree("./breakdowns", os.path.join(installer_folder , "breakdowns"))
-shutil.copytree("./phonemes", os.path.join(installer_folder , "phonemes"))
-shutil.copytree("./rsrc", os.path.join(installer_folder , "rsrc"))
+    shutil.move("./dist/papagayo-ng", os.path.join(installer_folder, "papagayo-ng"))
+shutil.copytree("./breakdowns", os.path.join(installer_folder, "breakdowns"))
+shutil.copytree("./phonemes", os.path.join(installer_folder, "phonemes"))
+shutil.copytree("./rsrc", os.path.join(installer_folder, "rsrc"))
 if with_rhubarb:
-    shutil.copytree("./rhubarb", os.path.join(installer_folder , "rhubarb"))
-shutil.copy("./papagayo-ng.nsi", os.path.join(installer_folder , "papagayo-ng.nsi"))
-shutil.copy("./papagayo-ng.ico", os.path.join(installer_folder , "papagayo-ng.ico"))
-shutil.copy("./ipa_cmu.json", os.path.join(installer_folder , "ipa_cmu.json"))
-shutil.copy("./version_information.txt", os.path.join(installer_folder , "version_information.txt"))
-shutil.copy("./about_markdown.html", os.path.join(installer_folder , "about_markdown.html"))
+    shutil.copytree("./rhubarb", os.path.join(installer_folder, "rhubarb"))
+shutil.copy("./papagayo-ng.nsi", os.path.join(installer_folder, "papagayo-ng.nsi"))
+shutil.copy("./papagayo-ng.ico", os.path.join(installer_folder, "papagayo-ng.ico"))
+shutil.copy("./ipa_cmu.json", os.path.join(installer_folder, "ipa_cmu.json"))
+shutil.copy("./version_information.txt", os.path.join(installer_folder, "version_information.txt"))
+shutil.copy("./about_markdown.html", os.path.join(installer_folder, "about_markdown.html"))

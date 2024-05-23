@@ -52,7 +52,7 @@ config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
 if config.value("audio_output", "old") == "old":
     import SoundPlayer as SoundPlayer
 else:
-    import SoundPlayerNew as SoundPlayer
+    import SoundPlayerSDF as SoundPlayer
     # if sys.platform == "win32":
     #     import SoundPlayerNew as SoundPlayer
     # elif sys.platform == "darwin":

@@ -12,3 +12,9 @@ venv/
 /.github/
 /output/
 .DS_Store
+/app_image_build/
+/testoutput/
+/installer_files/
+/build/
+/Tutorial Files/
+/rhubarb/
