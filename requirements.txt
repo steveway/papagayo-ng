@@ -1,17 +1,9 @@
 sounddevice
 cffi
 numpy
-pydub
 anytree
-audioread
-allosaurus
 appdirs
 pyyaml
 
 PySide6
-PyAudio
-webrtcvad
-pygame
-pypiwin32
-pywin32
 soundfile
