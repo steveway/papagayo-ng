@@ -824,7 +824,7 @@ class LipsyncDoc:
             del self.sound
             self.sound = None
         self.soundPath = path
-        self.sound = SoundPlayer.SoundPlayer(self.soundPath, self.parent)
+        self.sound = SoundPlayer.SoundPlayer(self.soundPath, self.parent, self.fps)
         if self.sound.IsValid():
             logging.info("valid sound")
             self.soundDuration = int(self.sound.Duration() * self.fps)
