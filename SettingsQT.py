@@ -62,8 +62,10 @@ class OnnxDownloadThread(QThread):
 
 
 class SettingsWindow:
-    def __init__(self):
+    def __init__(self, progress_callback, status_bar_progress):
         self.loader = None
+        self.progress_callback = progress_callback
+        self.status_bar_progress = status_bar_progress
         self.translator = utilities.ApplicationTranslator()
         #self.app = QtCore.QCoreApplication.instance()
         #self.translator = QtCore.QTranslator()
@@ -113,11 +115,16 @@ class SettingsWindow:
     def download_onnx_model(self):
         model_name = self.main_window.available_onnx_models.currentText()
         model_path = os.path.join(utilities.get_app_data_path(), "onnx_models")
+        self.status_bar_progress.show()
+        self.status_bar_progress.setMaximum(0)
+        self.status_bar_progress.setMinimum(0)
+        self.status_bar_progress.setValue(0)
         self.download_thread.change_name_and_path(model_name, model_path)
         self.download_thread.start()
 
     def onnx_complete(self, data):
         print(f"Download finished with message: {data}")
+        self.status_bar_progress.hide()
 
     def change_tab(self, event=None):
         if self.main_window.graphical_2.isChecked():

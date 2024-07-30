@@ -852,7 +852,7 @@ class LipsyncFrame:
         self.about_dlg.main_window.show()
 
     def show_settings(self, event=None):
-        self.settings_dlg = SettingsWindow()
+        self.settings_dlg = SettingsWindow(self.status_bar_progress, self.status_progress)
         self.settings_dlg.main_window.show()
         self.settings_dlg.main_window.finished.connect(self.settings_closed)
 
