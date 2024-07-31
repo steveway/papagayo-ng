@@ -38,7 +38,7 @@ class ComboRecognizer:
             ComboRecognizer()
         return ComboRecognizer.__instance
 
-    def __init__(self, phoneme_model_path, emotion_model_path, audio_manager, onnx_providers=None):
+    def __init__(self, phoneme_model_path="", emotion_model_path="", onnx_providers=None):
         self.recognition_thread = None
         if ComboRecognizer.__instance is not None:
             raise Exception("ComboRecognizer: This class is a singleton!")
