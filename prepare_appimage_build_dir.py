@@ -6,15 +6,18 @@ PREPARE_FOR_PYINSTALLER = True
 
 def main():
     source_dir = os.getcwd()
-    new_dir = os.path.join(os.getcwd(), "app_image_build")
+    if not PREPARE_FOR_PYINSTALLER:
+        new_dir = os.path.join(os.getcwd(), "app_image_build")
+    else:
+        new_dir = os.path.join(os.getcwd(), "pyinstaller_build")
     if not os.path.exists(new_dir):
         os.makedirs(new_dir)
     else:
         shutil.rmtree(new_dir)
         os.makedirs(new_dir)
-    list_of_files = ["papagayo-ng.py", "Rhubarb.py", "AboutBoxQT.py",
-                     "MouthViewQT.py", "utilities.py", "SettingsQT.py",
-                     "PronunciationDialogQT.py", "SoundPlayerNew.py",
+    list_of_files = ["papagayo-ng.py", "Rhubarb.py", "AboutBoxQT.py", "model_manager.py",
+                     "MouthViewQT.py", "utilities.py", "SettingsQT.py", "ai_output_process.py",
+                     "PronunciationDialogQT.py", "SoundPlayerNew.py", "SoundPlayerSDF.py", "recognizer.py",
                      "SoundPlayerOSX.py", "SoundPlayerQT.py",
                      "WaveformViewRewrite.py", "papagayongrcc.py",
                      "LipsyncDoc.py", "LipsyncFrameQT.py",

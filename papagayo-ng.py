@@ -1,6 +1,32 @@
 # --coding: utf-8 --
+# nuitka-project: --onefile
+# nuitka-project: --onefile-windows-splash-screen-image={MAIN_DIRECTORY}/rsrc/splash.png
+# nuitka-project: --enable-plugin=pyside6
+# nuitka-project: --include-data-files=./about_markdown.html=./about_markdown.html
+# nuitka-project: --include-data-files=./gpl.txt=./gpl.txt
+# nuitka-project: --include-data-files=./ipa_cmu.json=./ipa_cmu.json
+# nuitka-project: --include-data-files=./qt-icons.qrc=./qt-icons.qrc
+# nuitka-project: --include-data-files=./readme.md=./readme.md
+# nuitka-project: --include-data-dir=./rsrc=./rsrc
+# nuitka-project: --include-data-dir=./phonemes=./phonemes
+# nuitka-project: --include-data-files=./papagayo-ng.ico=./papagayo-ng.ico
+# nuitka-project: --include-data-files=./version_information.txt=./version_information.txt
+# nuitka-project: --windows-icon-from-ico=./papagayo-ng.ico
+# nuitka-project: --company-name=Morevna Project
+# nuitka-project: --product-name=Papagayo-NG
+# nuitka-project: --product-version=1.7.0
+# nuitka-project-if: os.getenv("PAPAGAYO_DEBUG") == "yes":
+#  nuitka-project: --windows-console-mode=attach
+#  nuitka-project: --windows-force-stdout-spec={PROGRAM_BASE}.out.txt
+#  nuitka-project: --windows-force-stderr-spec={PROGRAM_BASE}.err.txt
+# nuitka-project-else:
+#  nuitka-project: --windows-console-mode=disable
+#  nuitka-project: --windows-force-stdout-spec={NULL}
+#  nuitka-project: --windows-force-stderr-spec={NULL}
+
 import argparse
 import ctypes
+import tempfile
 
 from PySide6 import QtWidgets
 
@@ -155,6 +181,15 @@ if __name__ == "__main__":
 
     if pyi_splash:
         pyi_splash.close()
+    # Use this code to signal the splash screen removal.
+    if "NUITKA_ONEFILE_PARENT" in os.environ:
+        splash_filename = os.path.join(
+            tempfile.gettempdir(),
+            "onefile_%d_splash_feedback.tmp" % int(os.environ["NUITKA_ONEFILE_PARENT"]),
+        )
+
+        if os.path.exists(splash_filename):
+            os.unlink(splash_filename)
     application = QtWidgets.QApplication(sys.argv)
     use_cli = parse_cli()
     if not use_cli:

@@ -18,3 +18,4 @@ venv/
 /build/
 /Tutorial Files/
 /rhubarb/
+/pyinstaller_build/
