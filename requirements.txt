@@ -4,6 +4,7 @@ numpy
 anytree
 appdirs
 pyyaml
-
 PySide6
 soundfile
+huggingface_hub
+onnxruntime-gpu

@@ -33,6 +33,7 @@ import logging
 
 from Rhubarb import Rhubarb, RhubarbTimeoutException
 from ai_output_process import get_best_fitting_output_from_list
+from model_downloader import ensure_model_exists
 
 try:
     import configparser
@@ -997,14 +998,20 @@ class LipsyncDoc:
     def auto_recognize_phoneme(self, manual_invoke=False):
         if str(self.settings.value("/VoiceRecognition/run_voice_recognition",
                                    "true")).lower() == "true" or manual_invoke:
-            model_name = self.settings.value("/VoiceRecognition/onnx_model").split("steveway/")[-1]
-            model_path = os.path.join(utilities.get_app_data_path(), "onnx_models")
-            full_model_path = os.path.join(model_path, "phoneme", model_name)
-            try:
-                phoneme_recognizer = recognizer.ComboRecognizer(full_model_path)
-            except:
+            recognizer_type = self.settings.value("/VoiceRecognition/recognizer", "Allosaurus")
+            
+            if recognizer_type == "ONNX":
+                try:
+                    model_path = self.settings.value("/VoiceRecognition/onnx_model", "default")
+                    model_dir = ensure_model_exists(model_path, model_type="phoneme")
+                    phoneme_recognizer = recognizer.ComboRecognizer(model_dir)
+                except Exception as e:
+                    print(f"Failed to use ONNX model: {str(e)}")
+                    print("Falling back to Allosaurus recognizer")
+                    phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
+            else:
                 phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
-                phoneme_recognizer.change_model(full_model_path, "phoneme")
+            
             ipa_convert = json.load(open("ipa_cmu.json", encoding="utf8"))
             phonemes = phoneme_recognizer.predict(self.soundPath, "phoneme")
             phonemes = get_best_fitting_output_from_list(phonemes, ipa_convert)
@@ -1055,6 +1062,7 @@ class LipsyncDoc:
             for word in list_of_words:
                 peak_left = word[0]
                 peak_right = word[1]
+
                 amount_of_phonemes = min(phonemes_per_word, peak_right - peak_left)
                 print(f"Auto-Recognized Amount of Phonemes: {amount_of_phonemes}")
                 used_phonemes = []

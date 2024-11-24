@@ -143,9 +143,6 @@
    <property name="text">
     <string>&amp;Settings</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+,</string>
-   </property>
   </action>
   <action name="actionPlay">
    <property name="icon">

@@ -6,7 +6,7 @@ from queue import Queue
 
 # import torch
 
-os.environ['PHONEMIZER_ESPEAK_LIBRARY'] = "C:\Program Files\eSpeak NG\libespeak-ng.dll"
+os.environ['PHONEMIZER_ESPEAK_LIBRARY'] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
 
 import onnxruntime as ort
 import numpy as np
@@ -49,23 +49,33 @@ class ComboRecognizer:
         self.ep_list = [
             ('CUDAExecutionProvider', {"cudnn_conv_algo_search": "HEURISTIC", "device_id": current_torch_device})]
         self.model_output = Queue()
-        # self.audio_manager = audio_manager
         self.providers = self.ep_list
-        self.emotion_model_path = emotion_model_path  # This is the folder containing the emotion model
-        self.phoneme_model_path = phoneme_model_path  # This is the folder containing the phoneme model
-        self.emotion_model_name = Path(emotion_model_path).name
-        self.phoneme_model_name = Path(phoneme_model_path).name
-        self.emotion_model = self._load_model(self.emotion_model_path)
-        self.phoneme_model = self._load_model(self.phoneme_model_path)
-        self.works = True
+        self.emotion_model_path = emotion_model_path
+        self.phoneme_model_path = phoneme_model_path
+        self.emotion_model_name = Path(emotion_model_path).name if emotion_model_path else ""
+        self.phoneme_model_name = Path(phoneme_model_path).name if phoneme_model_path else ""
+
+        # Initialize models
+        try:
+            self.emotion_model = self._load_model(self.emotion_model_path) if emotion_model_path else None
+        except Exception as e:
+            print(f"Failed to load emotion model: {str(e)}")
+            self.emotion_model = None
+
+        try:
+            self.phoneme_model = self._load_model(self.phoneme_model_path) if phoneme_model_path else None
+        except Exception as e:
+            print(f"Failed to load phoneme model: {str(e)}")
+            self.phoneme_model = None
+
+        self.works = bool(self.phoneme_model or self.emotion_model)
         self.emotion_settings = None
         self.phoneme_settings = None
-        self._load_settings(self.emotion_model_path, "emotion")
-        self._load_settings(self.phoneme_model_path, "phoneme")
 
-        if glob.glob(phoneme_model_path + "/*.tokens"):
-            with open(glob.glob(phoneme_model_path + "/*.tokens")[0], 'r', encoding="utf8") as f:
-                self.token_dict = yaml.safe_load(f)
+        if self.emotion_model:
+            self._load_settings(self.emotion_model_path, "emotion")
+        if self.phoneme_model:
+            self._load_settings(self.phoneme_model_path, "phoneme")
 
     def _load_model(self, model_path):
         if not model_path or model_path.endswith("/_onnx"):
@@ -171,8 +181,12 @@ class ComboRecognizer:
             input_name = self.emotion_model.get_inputs()[0].name
         inputs = {input_name: audio.astype(np.float32)}
         if model_type == "phoneme":
+            if not self.phoneme_model:
+                raise RuntimeError("No phoneme model loaded")
             outputs = self.phoneme_model.run(None, inputs)[0]
         else:
+            if not self.emotion_model:
+                raise RuntimeError("No emotion model loaded")
             outputs = self.emotion_model.run(None, inputs)[0]
         if model_type == "phoneme":
             prediction = np.argmax(outputs, axis=-1)
