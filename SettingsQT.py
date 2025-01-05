@@ -26,9 +26,10 @@ from functools import partial
 
 import PySide6.QtWidgets as QtWidgets
 from PySide6 import QtCore, QtGui
-from PySide6.QtCore import QFile, QThread, QObject, Signal
+from PySide6.QtCore import QFile, QThread, QObject, Signal, Qt
 from PySide6.QtUiTools import QUiLoader as uic
 import model_manager
+from model_manager import CustomTQDM
 
 import utilities
 
@@ -37,72 +38,77 @@ class MySignal(QObject):
     sig = Signal(str)
 
 
+class ProgressSignal(QObject):
+    progress = Signal(int)
+
+
 class OnnxDownloadThread(QThread):
+    progress_signal = Signal(int)  # Define as class attribute
+    finished_signal = Signal(str)  # Define as class attribute
+    
     def __init__(self, parent, model_name, model_path):
-        QThread.__init__(self, parent)
-        self.parent = parent
+        super().__init__(parent)
         try:
             self.model_manager = model_manager.ModelHandler()
         except:
             self.model_manager = model_manager.ModelHandler.get_instance()
         self.model_name = model_name
         self.model_path = model_path
-        self.signal = MySignal()
+        self._is_running = False
+        self._is_paused = False
 
     def change_name_and_path(self, model_name, model_path):
         self.model_name = model_name
         self.model_path = model_path
 
-    def __del__(self):
-        self.wait()
-
+    def stop(self):
+        print("Stopping download thread...")  # Debug print
+        self._is_running = False
+        self.model_manager.stop_download()
+        if self.isRunning():
+            self.terminate()
+            self.wait()
+        
     def run(self):
-        self.model_manager.download_model(self.model_name, self.model_path)
-        self.signal.sig.emit("Download complete")
+        self._is_running = True
+        try:
+            CustomTQDM.set_signal(self)  # Set the signal at class level
+            CustomTQDM._last_progress = -1  # Reset progress
+            if self._is_running:
+                self.model_manager.download_model(self.model_name, self.model_path)
+                if self._is_running:  # Only emit if not stopped
+                    self.finished_signal.emit("Download complete")
+        except Exception as e:
+            print(f"Download error: {str(e)}")  # Debug print
+            if self._is_running:  # Only emit if not stopped
+                self.finished_signal.emit(f"Download failed: {str(e)}")
+        finally:
+            self._is_running = False
+            CustomTQDM.set_signal(None)  # Clear the signal
 
+    def toggle_pause(self):
+        self._is_paused = not self._is_paused
+        return self._is_paused
 
 class SettingsWindow:
     def __init__(self, progress_callback, status_bar_progress):
-        self.loader = None
         self.progress_callback = progress_callback
         self.status_bar_progress = status_bar_progress
-        self.translator = utilities.ApplicationTranslator()
-        #self.app = QtCore.QCoreApplication.instance()
-        #self.translator = QtCore.QTranslator()
-        #self.translator.load("en_text", utilities.get_main_dir())
-        self.ui = None
-        self.ui_file = None
+        self.main_window = self.load_ui_widget(os.path.join(utilities.get_main_dir(), "rsrc", "settings.ui"))
+        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
+        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+
         try:
             self.model_manager = model_manager.ModelHandler()
         except:
             self.model_manager = model_manager.ModelHandler.get_instance()
-        self.download_thread = OnnxDownloadThread(None, None, None)
-        self.download_thread.signal.sig.connect(self.onnx_complete)
-        self.main_window = self.load_ui_widget(os.path.join(utilities.get_main_dir(), "rsrc", "settings.ui"))
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
-        self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
-        self.main_window.general_2.clicked.connect(self.change_tab)
-        self.main_window.graphical_2.clicked.connect(self.change_tab)
-        self.main_window.misc_2.clicked.connect(self.change_tab)
-        self.main_window.voice_rec.clicked.connect(self.change_tab)
-        self.main_window.delete_settings.clicked.connect(self.delete_settings)
-        self.main_window.reset_colors.clicked.connect(self.on_reset_colors)
-        self.main_window.ffmpeg_delete_button.clicked.connect(self.delete_ffmpeg)
-        self.main_window.allo_delete_button.clicked.connect(self.delete_ai_model)
-        self.main_window.rhubarb_delete_button.clicked.connect(self.delete_rhubarb)
-        self.main_window.download_onnx_model.clicked.connect(self.download_onnx_model)
-        self.main_window.accepted.connect(self.accepted)
-        for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
-            if "Color" in color_button.text():
-                self.main_window.connect(color_button, QtCore.SIGNAL("clicked()"),
-                                         partial(self.open_color_dialog, color_button))
-        self.load_settings_to_gui()
-        self.main_window.open_app_data_path.clicked.connect(self.open_app_data)
-        self.main_window.set_qss_path_button.clicked.connect(self.select_qss_path)
-        self.main_window.settings_options.setCurrentIndex(0)
-        # self.main_window.setWindowIcon(QtGui.QIcon(os.path.join(get_main_dir(), "rsrc", "window_icon.bmp")))
-        # self.main_window.about_ok_button.clicked.connect(self.close)
+
+        # Initialize download thread after main window is created
+        self.download_thread = OnnxDownloadThread(self.main_window, "", "")
+        self.download_thread.progress_signal.connect(self.update_progress, Qt.QueuedConnection)
+        self.download_thread.finished_signal.connect(self.onnx_complete, Qt.QueuedConnection)
+
+        self.init_ui()
 
     def load_ui_widget(self, ui_filename, parent=None):
         loader = uic()
@@ -116,7 +122,7 @@ class SettingsWindow:
         model_name = self.main_window.available_onnx_models.currentText()
         model_path = os.path.join(utilities.get_app_data_path(), "onnx_models")
         self.status_bar_progress.show()
-        self.status_bar_progress.setMaximum(0)
+        self.status_bar_progress.setMaximum(100)
         self.status_bar_progress.setMinimum(0)
         self.status_bar_progress.setValue(0)
         self.download_thread.change_name_and_path(model_name, model_path)
@@ -125,6 +131,11 @@ class SettingsWindow:
     def onnx_complete(self, data):
         print(f"Download finished with message: {data}")
         self.status_bar_progress.hide()
+
+    def update_progress(self, value):
+        print(f"Progress update: {value}%")  # Debug print
+        self.status_bar_progress.setValue(value)
+        QtCore.QCoreApplication.processEvents()  # Process any pending events
 
     def change_tab(self, event=None):
         if self.main_window.graphical_2.isChecked():
@@ -235,6 +246,33 @@ class SettingsWindow:
         self.main_window.available_onnx_models.setCurrentText(self.settings.value("/VoiceRecognition/onnx_model"))
         self.main_window.qss_path.setText(self.settings.value("qss_file_path", ""))
 
+    def init_ui(self):
+        self.translator = utilities.ApplicationTranslator()
+        #self.app = QtCore.QCoreApplication.instance()
+        #self.translator = QtCore.QTranslator()
+        #self.translator.load("en_text", utilities.get_main_dir())
+        self.main_window.general_2.clicked.connect(self.change_tab)
+        self.main_window.graphical_2.clicked.connect(self.change_tab)
+        self.main_window.misc_2.clicked.connect(self.change_tab)
+        self.main_window.voice_rec.clicked.connect(self.change_tab)
+        self.main_window.delete_settings.clicked.connect(self.delete_settings)
+        self.main_window.reset_colors.clicked.connect(self.on_reset_colors)
+        self.main_window.ffmpeg_delete_button.clicked.connect(self.delete_ffmpeg)
+        self.main_window.allo_delete_button.clicked.connect(self.delete_ai_model)
+        self.main_window.rhubarb_delete_button.clicked.connect(self.delete_rhubarb)
+        self.main_window.download_onnx_model.clicked.connect(self.download_onnx_model)
+        self.main_window.accepted.connect(self.accepted)
+        for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
+            if "Color" in color_button.text():
+                self.main_window.connect(color_button, QtCore.SIGNAL("clicked()"),
+                                         partial(self.open_color_dialog, color_button))
+        self.load_settings_to_gui()
+        self.main_window.open_app_data_path.clicked.connect(self.open_app_data)
+        self.main_window.set_qss_path_button.clicked.connect(self.select_qss_path)
+        self.main_window.settings_options.setCurrentIndex(0)
+        # self.main_window.setWindowIcon(QtGui.QIcon(os.path.join(get_main_dir(), "rsrc", "window_icon.bmp")))
+        # self.main_window.about_ok_button.clicked.connect(self.close)
+
     def on_reset_colors(self):
         for color_name, color_value in utilities.original_colors.items():
             self.settings.setValue("/Graphics/{}".format(color_name), color_value.name())
@@ -266,5 +304,12 @@ class SettingsWindow:
                                        color_button.palette().button().color().name())
 
     def close(self):
+        if self.download_thread and self.download_thread.isRunning():
+            print("Stopping download thread...")  # Debug print
+            self.download_thread.stop()
+            if not self.download_thread.wait(5000):  # Wait up to 5 seconds
+                print("Force terminating download thread...")  # Debug print
+                self.download_thread.terminate()
+                self.download_thread.wait()
         self.main_window.close()
 # end of class AboutBox
