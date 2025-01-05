@@ -1059,19 +1059,31 @@ class LipsyncDoc:
             phonemes_per_word = math.ceil(len(phonemes) / len(list_of_words))
             print(f"Auto-Recognized Phonemes Per Word: {phonemes_per_word}")
             phoneme_pointer = 0
-            for word in list_of_words:
+            remaining_phonemes = len(phonemes)
+            for i, word in enumerate(list_of_words):
                 peak_left = word[0]
                 peak_right = word[1]
 
-                amount_of_phonemes = min(phonemes_per_word, peak_right - peak_left)
+                # Calculate phonemes for this word considering remaining words and phonemes
+                if i == len(list_of_words) - 1:
+                    # Last word - use all remaining phonemes
+                    amount_of_phonemes = remaining_phonemes
+                else:
+                    # For other words, distribute remaining phonemes evenly among remaining words
+                    remaining_words = len(list_of_words) - i
+                    amount_of_phonemes = min(
+                        peak_right - peak_left,  # Don't use more frames than available
+                        max(1, remaining_phonemes // remaining_words)  # At least 1 phoneme per word
+                    )
+
                 print(f"Auto-Recognized Amount of Phonemes: {amount_of_phonemes}")
                 used_phonemes = []
-                j = 0
                 for j in range(amount_of_phonemes):
                     if phoneme_pointer < len(phonemes):
                         print(f"Phoneme Pointer Position: {phoneme_pointer}")
                         used_phonemes.append(phonemes[phoneme_pointer])
                         phoneme_pointer += 1
+                        remaining_phonemes -= 1
 
                 word = LipSyncObject(object_type="word", parent=phrase)
                 word.text = "|".join(phoneme.upper() for phoneme in used_phonemes)

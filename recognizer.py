@@ -113,11 +113,27 @@ class ComboRecognizer:
         if not model_path or model_path.endswith("/_onnx"):
             return False
         settings_path = glob.glob(model_path + "/*.yaml")[0]
+        print(f"Loading settings from: {settings_path}")
 
         with open(settings_path, 'r') as f:
             if model_type == "phoneme":
                 self.phoneme_settings = yaml.safe_load(f)
                 settings = self.phoneme_settings
+                # Load tokens from .tokens file
+                tokens_file = settings_path.replace('.yaml', '.tokens')
+                if os.path.exists(tokens_file):
+                    print(f"Loading tokens from: {tokens_file}")
+                    self.token_dict = {}
+                    with open(tokens_file, 'r', encoding='utf-8') as tf:
+                        for line in tf:
+                            if ':' in line:
+                                idx, token = line.strip().split(':', 1)
+                                # Remove quotes if present
+                                token = token.strip().strip("'")
+                                self.token_dict[int(idx)] = token
+                    print(f"Loaded {len(self.token_dict)} tokens")
+                else:
+                    print(f"Warning: No tokens file found at {tokens_file}")
             if model_type == "emotion":
                 self.emotion_settings = yaml.safe_load(f)
                 settings = self.emotion_settings
