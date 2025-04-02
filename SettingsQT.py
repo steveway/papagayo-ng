@@ -31,6 +31,7 @@ from PySide6.QtUiTools import QUiLoader as uic
 import model_manager
 from model_manager import CustomTQDM
 
+import path_utils
 import utilities
 
 
@@ -94,7 +95,8 @@ class SettingsWindow:
     def __init__(self, progress_callback, status_bar_progress):
         self.progress_callback = progress_callback
         self.status_bar_progress = status_bar_progress
-        self.main_window = self.load_ui_widget(os.path.join(utilities.get_main_dir(), "rsrc", "settings.ui"))
+        self.ui_path = path_utils.get_resource_path("rsrc", "settings.ui")
+        self.main_window = self.load_ui_widget(self.ui_path)
         ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
         self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
 

@@ -1,0 +1,72 @@
+# Nuitka build configuration
+project:
+  name: "Papagayo-NG"
+  version: "1.8.0.0"
+  company: "Morevna Project"
+  description: "Lip-Sync Software"
+  icon: "papagayo-ng.ico"
+  main_file: "papagayo-ng.py"
+
+build:
+  output:
+    directory: "dist"
+    filename: "papagayo-ng.exe"
+  options:
+    standalone: true
+    onefile: true
+    splash_screen: "rsrc/splash.png"
+
+  include:
+    packages:
+      - "PySide6"
+      - "appdirs"
+    data_dirs:
+      - source: "rsrc"
+        target: "rsrc"
+      - source: "translations"
+        target: "translations"
+      - source: "phonemes"
+        target: "phonemes"
+    external_data:
+      - "*.dll"
+    files:
+      - "requirements.txt"
+      - "build_config.yaml"
+      - "version_information.txt"
+      - "gpl.txt"
+      - "readme.md"
+      - "qt-icons.qrc"
+      - "papagayo-ng.ico"
+      - "about_markdown.html"
+      - "ipa_cmu.json"
+
+installer:
+  enabled: true
+  output:
+    directory: "dist"
+    filename: "papagayo-ng_installer.msi"
+  metadata:
+    manufacturer: "Morevna Project"
+    product_name: "Papagayo-NG"
+    upgrade_code: "04604d2c-88b0-58f7-8f26-40a4e4dd239f"
+  ui:
+    banner_image: "rsrc/images/banner.bmp"
+    dialog_image: "rsrc/images/dialog.bmp"
+  shortcuts:
+    desktop: true
+    start_menu: true
+
+debug:
+  enabled: false
+  console:
+    mode: "disabled"
+    stdout: null
+    stderr: null
+
+exclude:
+  - "__pycache__"
+  - "*.pyc"
+  - "*.pyo"
+  - "*.pyd"
+  - "build"
+  - "dist"

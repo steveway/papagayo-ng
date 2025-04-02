@@ -40,12 +40,10 @@ import io
 from zipfile import ZipFile
 import utilities
 import platform
-import random
-import re
+import path_utils
 
 from WaveformViewRewrite import WaveformView
 from MouthViewQT import MouthView
-# end wxGlade
 
 from AboutBoxQT import AboutBox
 from SettingsQT import SettingsWindow
@@ -142,7 +140,7 @@ class LipsyncFrame:
         self.doc = None
         self.about_dlg = None
         self.settings_dlg = None
-        self.ui_path = os.path.join(utilities.get_main_dir(), "rsrc", "papagayo-ng2.ui")
+        self.ui_path = path_utils.get_resource_path("rsrc", "papagayo-ng2.ui")
         self.main_window = self.load_ui_widget(self.ui_path)
         self.main_window.setWindowTitle("%s" % app_title)
         self.main_window.lip_sync_frame = self
