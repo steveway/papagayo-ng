@@ -1,0 +1,413 @@
+{
+ "version": 2,
+ "sound_path": "C:/Users/Stefan/Documents/StefanMain/PycharmProjects/papagayo_clean/Tutorial Files/lame.wav",
+ "fps": 24,
+ "sound_duration": 97,
+ "num_voices": 1,
+ "phoneme_set": "CMU_39",
+ "voices": [
+  {
+   "name": "Voice 1",
+   "start_frame": 0,
+   "end_frame": 94,
+   "text": "AO NTAA NEH OWLEH IHM DIYNOW LUW SEHIY VOWIHOW SAA LAOAA VAHMYAAT AOIH LOWNG \n0.090 0.045 \u0254\n0.210 0.045 n\n0.300 0.045 t\n0.360 0.045 a\n0.480 0.045 n\n0.510 0.045 e\n0.750 0.045 o\n0.990 0.045 l\n1.050 0.045 e\n1.260 0.045 \u026a\n1.380 0.045 m\n1.710 0.045 d\n1.740 0.045 i\u02d0\n1.800 0.045 x\n1.860 0.045 o\n2.040 0.045 l\n2.100 0.045 u\n2.250 0.045 s\n2.310 0.045 e\n2.400 0.045 i\n2.490 0.045 v\n2.550 0.045 o\n2.610 0.045 \u026a\n2.670 0.045 o\n2.880 0.045 s\n2.910 0.045 a\n3.000 0.045 l\n3.030 0.045 \u0252\n3.060 0.045 a\n3.180 0.045 v\n3.240 0.045 \u028c\n3.300 0.045 m\n3.360 0.045 j\n3.420 0.045 a\n3.510 0.045 t\u02b0\n3.600 0.045 \u0252\n3.630 0.045 \u026a\n3.720 0.045 l\n3.810 0.045 o\n3.900 0.045 \u014b",
+   "num_children": 55,
+   "phrases": [
+    {
+     "id": 0,
+     "text": "Auto detection Allosaurus",
+     "start_frame": 0,
+     "end_frame": 94,
+     "tags": [],
+     "words": [
+      {
+       "id": 0,
+       "text": "AO",
+       "start_frame": 2,
+       "end_frame": 3,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "AO",
+         "frame": 2,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 1,
+       "text": "NTAA",
+       "start_frame": 5,
+       "end_frame": 9,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "N",
+         "frame": 5,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "T",
+         "frame": 7,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "AA",
+         "frame": 8,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 2,
+       "text": "NEH",
+       "start_frame": 11,
+       "end_frame": 13,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "N",
+         "frame": 11,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "EH",
+         "frame": 12,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 3,
+       "text": "OWLEH",
+       "start_frame": 18,
+       "end_frame": 26,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "OW",
+         "frame": 18,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "L",
+         "frame": 23,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "EH",
+         "frame": 25,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 4,
+       "text": "IHM",
+       "start_frame": 30,
+       "end_frame": 34,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "IH",
+         "frame": 30,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "M",
+         "frame": 33,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 5,
+       "text": "DIYNOW",
+       "start_frame": 41,
+       "end_frame": 45,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "D",
+         "frame": 41,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "IY",
+         "frame": 42,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "N",
+         "frame": 43,
+         "tags": []
+        },
+        {
+         "id": 3,
+         "text": "OW",
+         "frame": 44,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 6,
+       "text": "LUW",
+       "start_frame": 48,
+       "end_frame": 51,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "L",
+         "frame": 48,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "UW",
+         "frame": 50,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 7,
+       "text": "SEHIY",
+       "start_frame": 54,
+       "end_frame": 58,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "S",
+         "frame": 54,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "EH",
+         "frame": 55,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "IY",
+         "frame": 57,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 8,
+       "text": "VOWIHOW",
+       "start_frame": 59,
+       "end_frame": 65,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "V",
+         "frame": 59,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "OW",
+         "frame": 61,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "IH",
+         "frame": 62,
+         "tags": []
+        },
+        {
+         "id": 3,
+         "text": "OW",
+         "frame": 64,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 9,
+       "text": "SAA",
+       "start_frame": 69,
+       "end_frame": 71,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "S",
+         "frame": 69,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "AA",
+         "frame": 70,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 10,
+       "text": "LAOAA",
+       "start_frame": 72,
+       "end_frame": 75,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "L",
+         "frame": 72,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "AO",
+         "frame": 73,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "AA",
+         "frame": 74,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 11,
+       "text": "VAHMYAAT",
+       "start_frame": 76,
+       "end_frame": 85,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "V",
+         "frame": 76,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "AH",
+         "frame": 77,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "M",
+         "frame": 79,
+         "tags": []
+        },
+        {
+         "id": 3,
+         "text": "Y",
+         "frame": 80,
+         "tags": []
+        },
+        {
+         "id": 4,
+         "text": "AA",
+         "frame": 82,
+         "tags": []
+        },
+        {
+         "id": 5,
+         "text": "T",
+         "frame": 84,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 12,
+       "text": "AOIH",
+       "start_frame": 86,
+       "end_frame": 88,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "AO",
+         "frame": 86,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "IH",
+         "frame": 87,
+         "tags": []
+        }
+       ]
+      },
+      {
+       "id": 13,
+       "text": "LOWNG",
+       "start_frame": 89,
+       "end_frame": 94,
+       "tags": [],
+       "phonemes": [
+        {
+         "id": 0,
+         "text": "L",
+         "frame": 89,
+         "tags": []
+        },
+        {
+         "id": 1,
+         "text": "OW",
+         "frame": 91,
+         "tags": []
+        },
+        {
+         "id": 2,
+         "text": "NG",
+         "frame": 93,
+         "tags": []
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "used_phonemes": [
+    "AO",
+    "N",
+    "T",
+    "AA",
+    "EH",
+    "OW",
+    "L",
+    "IH",
+    "M",
+    "D",
+    "IY",
+    "UW",
+    "S",
+    "V",
+    "AH",
+    "Y",
+    "NG"
+   ]
+  }
+ ]
+}

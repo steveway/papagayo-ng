@@ -1,0 +1,483 @@
+{
+ "name": "Mojo Jojo",
+ "start_frame": 2,
+ "end_frame": 95,
+ "text": "Oh that is so lame.\nYou will pay for your use of inappropriate dialog!",
+ "num_children": 62,
+ "fps": 48,
+ "phrases": [
+  {
+   "id": 0,
+   "text": "Oh that is so lame.",
+   "start_frame": 2,
+   "end_frame": 35,
+   "tags": [
+    "test3"
+   ],
+   "words": [
+    {
+     "id": 0,
+     "text": "Oh",
+     "start_frame": 2,
+     "end_frame": 4,
+     "tags": [
+      "test3"
+     ],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "O",
+       "frame": 2,
+       "tags": [
+        "test3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": 1,
+     "text": "that",
+     "start_frame": 8,
+     "end_frame": 11,
+     "tags": [
+      "test3"
+     ],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "etc",
+       "frame": 8,
+       "tags": [
+        "test3"
+       ]
+      },
+      {
+       "id": 1,
+       "text": "AI",
+       "frame": 9,
+       "tags": [
+        "test3"
+       ]
+      },
+      {
+       "id": 2,
+       "text": "etc",
+       "frame": 11,
+       "tags": [
+        "test3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": 2,
+     "text": "is",
+     "start_frame": 12,
+     "end_frame": 14,
+     "tags": [
+      "test3"
+     ],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "AI",
+       "frame": 12,
+       "tags": [
+        "test3"
+       ]
+      },
+      {
+       "id": 1,
+       "text": "etc",
+       "frame": 14,
+       "tags": [
+        "test3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": 3,
+     "text": "so",
+     "start_frame": 15,
+     "end_frame": 20,
+     "tags": [
+      "test3"
+     ],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "etc",
+       "frame": 15,
+       "tags": [
+        "test3"
+       ]
+      },
+      {
+       "id": 1,
+       "text": "O",
+       "frame": 18,
+       "tags": [
+        "test3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": 4,
+     "text": "lame.",
+     "start_frame": 21,
+     "end_frame": 35,
+     "tags": [
+      "test",
+      "test2",
+      "test3"
+     ],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "L",
+       "frame": 21,
+       "tags": [
+        "test",
+        "test2",
+        "test3"
+       ]
+      },
+      {
+       "id": 1,
+       "text": "E",
+       "frame": 26,
+       "tags": [
+        "test",
+        "test2",
+        "test3"
+       ]
+      },
+      {
+       "id": 2,
+       "text": "MBP",
+       "frame": 31,
+       "tags": [
+        "test",
+        "test2",
+        "test3"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": 1,
+   "text": "You will pay for your use of inappropriate dialog!",
+   "start_frame": 41,
+   "end_frame": 95,
+   "tags": [],
+   "words": [
+    {
+     "id": 0,
+     "text": "You",
+     "start_frame": 41,
+     "end_frame": 45,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "etc",
+       "frame": 41,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "U",
+       "frame": 44,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 1,
+     "text": "will",
+     "start_frame": 46,
+     "end_frame": 51,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "WQ",
+       "frame": 46,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "AI",
+       "frame": 48,
+       "tags": []
+      },
+      {
+       "id": 2,
+       "text": "L",
+       "frame": 50,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 2,
+     "text": "pay",
+     "start_frame": 52,
+     "end_frame": 59,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "MBP",
+       "frame": 52,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "E",
+       "frame": 56,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 3,
+     "text": "for",
+     "start_frame": 60,
+     "end_frame": 62,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "FV",
+       "frame": 60,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "O",
+       "frame": 61,
+       "tags": []
+      },
+      {
+       "id": 2,
+       "text": "etc",
+       "frame": 62,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 4,
+     "text": "your",
+     "start_frame": 63,
+     "end_frame": 65,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "etc",
+       "frame": 63,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "O",
+       "frame": 64,
+       "tags": []
+      },
+      {
+       "id": 2,
+       "text": "etc",
+       "frame": 65,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 5,
+     "text": "use",
+     "start_frame": 66,
+     "end_frame": 69,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "etc",
+       "frame": 66,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "U",
+       "frame": 67,
+       "tags": []
+      },
+      {
+       "id": 2,
+       "text": "etc",
+       "frame": 69,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 6,
+     "text": "of",
+     "start_frame": 70,
+     "end_frame": 71,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "AI",
+       "frame": 70,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "FV",
+       "frame": 71,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 7,
+     "text": "inappropriate",
+     "start_frame": 72,
+     "end_frame": 83,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "AI",
+       "frame": 72,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "etc",
+       "frame": 73,
+       "tags": []
+      },
+      {
+       "id": 2,
+       "text": "AI",
+       "frame": 74,
+       "tags": []
+      },
+      {
+       "id": 3,
+       "text": "MBP",
+       "frame": 75,
+       "tags": []
+      },
+      {
+       "id": 4,
+       "text": "etc",
+       "frame": 76,
+       "tags": []
+      },
+      {
+       "id": 5,
+       "text": "O",
+       "frame": 77,
+       "tags": []
+      },
+      {
+       "id": 6,
+       "text": "MBP",
+       "frame": 79,
+       "tags": []
+      },
+      {
+       "id": 7,
+       "text": "etc",
+       "frame": 80,
+       "tags": []
+      },
+      {
+       "id": 8,
+       "text": "E",
+       "frame": 81,
+       "tags": []
+      },
+      {
+       "id": 9,
+       "text": "AI",
+       "frame": 82,
+       "tags": []
+      },
+      {
+       "id": 10,
+       "text": "etc",
+       "frame": 83,
+       "tags": []
+      }
+     ]
+    },
+    {
+     "id": 8,
+     "text": "dialog!",
+     "start_frame": 84,
+     "end_frame": 95,
+     "tags": [],
+     "phonemes": [
+      {
+       "id": 0,
+       "text": "etc",
+       "frame": 84,
+       "tags": []
+      },
+      {
+       "id": 1,
+       "text": "AI",
+       "frame": 86,
+       "tags": []
+      },
+      {
+       "id": 2,
+       "text": "AI",
+       "frame": 88,
+       "tags": []
+      },
+      {
+       "id": 3,
+       "text": "L",
+       "frame": 90,
+       "tags": []
+      },
+      {
+       "id": 4,
+       "text": "O",
+       "frame": 92,
+       "tags": []
+      },
+      {
+       "id": 5,
+       "text": "etc",
+       "frame": 94,
+       "tags": []
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "used_phonemes": [
+  "O",
+  "etc",
+  "AI",
+  "L",
+  "E",
+  "MBP",
+  "U",
+  "WQ",
+  "FV"
+ ]
+}
