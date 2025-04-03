@@ -192,9 +192,15 @@ class ComboRecognizer:
             audio = speech_file_to_array_fn_resize(audio)
         input_name = None
         if model_type == "phoneme":
-            input_name = self.phoneme_model.get_inputs()[0].name
+            if not self.phoneme_model:
+                input_name = ""
+            else:
+                input_name = self.phoneme_model.get_inputs()[0].name
         elif model_type == "emotion":
-            input_name = self.emotion_model.get_inputs()[0].name
+            if not self.emotion_model:
+                input_name = ""
+            else:
+                input_name = self.emotion_model.get_inputs()[0].name
         inputs = {input_name: audio.astype(np.float32)}
         if model_type == "phoneme":
             if not self.phoneme_model:

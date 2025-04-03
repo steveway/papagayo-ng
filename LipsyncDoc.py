@@ -1007,8 +1007,8 @@ class LipsyncDoc:
                     phoneme_recognizer = recognizer.ComboRecognizer(model_dir)
                 except Exception as e:
                     print(f"Failed to use ONNX model: {str(e)}")
-                    print("Falling back to Allosaurus recognizer")
                     phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
+                    phoneme_recognizer.change_model(model_path, "phoneme")
             else:
                 phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
             
