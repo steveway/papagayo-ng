@@ -2,6 +2,7 @@
 import os
 import sys
 import yaml
+import shutil  # Import the shutil module for file operations
 import subprocess
 from pathlib import Path
 from typing import Dict, Any
@@ -134,6 +135,40 @@ def main():
         print("Building executable with Nuitka...")
         subprocess.run(cmd, check=True)
         print("Executable built successfully!")
+
+        # --- Copy files/folders beside the executable ---
+        build_config = config.get('build', {})
+        copy_beside_items = build_config.get('copy_beside', [])
+        if copy_beside_items:
+            output_dir_name = build_config.get('output', {}).get('directory', 'dist')
+            output_dir_path = Path.cwd() / output_dir_name
+            
+            print(f"\nCopying additional items to {output_dir_path}...")
+            
+            for item_name in copy_beside_items:
+                source_path = Path.cwd() / item_name
+                dest_path = output_dir_path / item_name
+                
+                if not source_path.exists():
+                    print(f"Warning: Source item '{item_name}' not found at '{source_path}', skipping.")
+                    continue
+                
+                try:
+                    if source_path.is_dir():
+                        print(f"  Copying directory: {item_name}")
+                        shutil.copytree(source_path, dest_path, dirs_exist_ok=True)
+                    elif source_path.is_file():
+                        print(f"  Copying file: {item_name}")
+                        # Ensure the destination directory exists (should already exist)
+                        output_dir_path.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source_path, dest_path)
+                    else:
+                        print(f"Warning: Source item '{item_name}' is not a file or directory, skipping.")
+                except Exception as copy_e:
+                    print(f"Error copying '{item_name}': {copy_e}")
+            print("Finished copying additional items.")
+        # --- End copy section ---
+
         
         # Build installer if enabled
         if config.get('installer', {}).get('enabled', False):

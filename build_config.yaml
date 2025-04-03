@@ -39,6 +39,9 @@ build:
       - "papagayo-ng.ico"
       - "about_markdown.html"
       - "ipa_cmu.json"
+  copy_beside:
+    - "rsrc"
+    - "phonemes"
 
 installer:
   enabled: true
