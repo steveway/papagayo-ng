@@ -29,6 +29,7 @@ import sys
 import os
 import tarfile
 import time
+from pathlib import Path
 from functools import partial
 
 from PySide6.QtCore import QFile, SIGNAL
@@ -99,10 +100,10 @@ def open_file_no_gui(path, parent):
     importlib.reload(LipsyncDoc)  # This makes the CLI version work on the first try but is very hacky
     langman = LipsyncDoc.LanguageManager()
     langman.init_languages()
-    ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-    config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+    ini_path = utilities.get_app_data_path() / "settings.ini"
+    config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
     doc = LipsyncDoc.LipsyncDoc(langman, parent)
-    if path.endswith(lipsync_extension_list):
+    if any(path.endswith(ext) for ext in lipsync_extension_list):
         if path.endswith(lipsync_extension_list[0]):
             # open a lipsync project
             doc.open(path)
@@ -110,7 +111,7 @@ def open_file_no_gui(path, parent):
             # open a json based lipsync project
             doc.open_json(path)
         if doc.sound is None:
-            logging.info("Could not load Sound file: " + doc.soundPath)
+            logging.info(f"Could not load Sound file: {doc.soundPath}")
             return None
     else:
         # open an audio file
@@ -130,7 +131,6 @@ def open_file_no_gui(path, parent):
 
 class LipsyncFrame:
     def __init__(self):
-        QtCore.QCoreApplication.setAttribute(QtCore.Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
         self.app = QtCore.QCoreApplication.instance()
         self.translator = utilities.ApplicationTranslator()
@@ -144,8 +144,8 @@ class LipsyncFrame:
         self.main_window = self.load_ui_widget(self.ui_path)
         self.main_window.setWindowTitle("%s" % app_title)
         self.main_window.lip_sync_frame = self
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+        ini_path = utilities.get_app_data_path() / "settings.ini"
+        self.config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
         self.config.setFallbacksEnabled(False)  # File only, not registry or or.
 
         # Initialize default ONNX settings if not present
@@ -392,7 +392,7 @@ class LipsyncFrame:
     def download_allosaurus_model(self, progress_callback):
         model_name = str(self.config.value("/VoiceRecognition/allosaurus_model", "latest"))
         url = 'https://github.com/xinjli/allosaurus/releases/download/v1.0/' + model_name + '.tar.gz'
-        model_dir = os.path.join(utilities.get_app_data_path(), "allosaurus_model")
+        model_dir = utilities.get_app_data_path() / "allosaurus_model"
         with urllib.request.urlopen(url) as req:
             length = req.getheader('content-length')
             block_size = 1000000
@@ -414,10 +414,10 @@ class LipsyncFrame:
                 buffer_all.seek(0)
                 files = tarfile.open(fileobj=buffer_all)
                 files.extractall(str(model_dir))
-                if os.path.exists(os.path.join(model_dir, "latest")):
-                    shutil.rmtree(os.path.join(model_dir, "latest"))
+                if (model_dir / "latest").exists():
+                    shutil.rmtree(str(model_dir / "latest"))
                 old_model_dirname = os.listdir(model_dir)[0]
-                os.rename(os.path.join(model_dir, old_model_dirname), os.path.join(model_dir, "latest"))
+                (model_dir / old_model_dirname).rename(model_dir / "latest")
         return
 
     def download_ffmpeg(self, progress_callback):
@@ -433,8 +433,8 @@ class LipsyncFrame:
             ffmpeg_binary = "ffmpeg"
             ffprobe_binary = "ffprobe"
             ffmpeg_build_url = "https://evermeet.cx/ffmpeg/getrelease/zip"
-        ffmpeg_path = os.path.join(utilities.get_app_data_path(), ffmpeg_binary)
-        ffprobe_path = os.path.join(utilities.get_app_data_path(), ffprobe_binary)
+        ffmpeg_path = utilities.get_app_data_path() / ffmpeg_binary
+        ffprobe_path = utilities.get_app_data_path() / ffprobe_binary
         try:
             with urllib.request.urlopen(ffmpeg_build_url) as req:
                 length = req.getheader('content-length')
@@ -485,7 +485,7 @@ class LipsyncFrame:
             else:
                 if download["name"].endswith("-Windows.zip"):
                     release_url = download["browser_download_url"]
-        rhubarb_path = os.path.join(utilities.get_app_data_path(), binary)
+        rhubarb_path = utilities.get_app_data_path() / binary
 
         try:
             with urllib.request.urlopen(release_url) as req:
@@ -509,11 +509,10 @@ class LipsyncFrame:
                     rhubarb_zip = ZipFile(buffer_all)
                     dirs = list(set([os.path.dirname(x) for x in rhubarb_zip.namelist()]))
                     main_dir = os.path.dirname([os.path.split(x)[0] for x in dirs][0])
-                    if os.path.exists(os.path.join(utilities.get_app_data_path(), "rhubarb")):
-                        shutil.rmtree(os.path.join(utilities.get_app_data_path(), "rhubarb"))
-                    rhubarb_zip.extractall(os.path.join(utilities.get_app_data_path()))
-                    os.rename(os.path.join(utilities.get_app_data_path(), main_dir),
-                              os.path.join(utilities.get_app_data_path(), "rhubarb"))
+                    if (utilities.get_app_data_path() / "rhubarb").exists():
+                        shutil.rmtree(str(utilities.get_app_data_path() / "rhubarb"))
+                    rhubarb_zip.extractall(str(utilities.get_app_data_path()))
+                    (utilities.get_app_data_path() / main_dir).rename(utilities.get_app_data_path() / "rhubarb")
         except TimeoutError:
             # Download Failed
             pass
@@ -714,7 +713,7 @@ class LipsyncFrame:
         while self.main_window.current_voice.tabBar().count() > 1:
             self.main_window.current_voice.tabBar().removeTab(self.main_window.current_voice.tabBar().count() - 1)
         self.doc = LipsyncDoc.LipsyncDoc(self.langman, self)
-        if path.endswith(lipsync_extension_list):
+        if any(path.endswith(ext) for ext in lipsync_extension_list):
             if path.endswith(lipsync_extension_list[0]):
                 # open a lipsync project
                 self.doc.open(path)

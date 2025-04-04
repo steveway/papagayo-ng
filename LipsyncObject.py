@@ -1,7 +1,8 @@
 from PySide6 import QtCore
 from anytree import NodeMixin
 import anytree
-import os
+from pathlib import Path
+import path_utils
 import utilities
 from PronunciationDialogQT import show_pronunciation_dialog
 
@@ -13,8 +14,8 @@ class LipSyncObject(NodeMixin):
     def __init__(self, parent=None, children=None, object_type="voice", text="", start_frame=0, end_frame=0, name="",
                  tags=None, num_children=0, sound_duration=0, fps=24):
         self.parent = parent
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+        ini_path = utilities.get_app_data_path() / "settings.ini"
+        self.config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
         self.config.setFallbacksEnabled(False)  # File only, not registry or or.
         if children:
             self.children = children
@@ -427,12 +428,12 @@ class LipSyncObject(NodeMixin):
         if not self.config.value("MouthDir"):
             logging.info("Use normal procedure.\n")
             phonemedict = {}
-            for files in os.listdir(os.path.join(utilities.get_main_dir(), "rsrc", "mouths", currentmouth)):
-                phonemedict[os.path.splitext(files)[0]] = os.path.splitext(files)[1]
+            mouth_full_dir = Path(path_utils.get_resource_path("rsrc", "mouths")) / currentmouth
+            for files in mouth_full_dir.iterdir():
+                phonemedict[files.stem] = files.suffix
             for phoneme in self.leaves:
                 try:
-                    shutil.copy(os.path.join(utilities.get_main_dir(), "rsrc", "mouths", currentmouth) + "/" +
-                                phoneme.text + phonemedict[phoneme.text],
+                    shutil.copy(mouth_full_dir / (phoneme.text + phonemedict[phoneme.text]),
                                 path + str(phoneme.start_frame).rjust(6, '0') +
                                 phoneme.text + phonemedict[phoneme.text])
                 except KeyError:
@@ -441,8 +442,8 @@ class LipSyncObject(NodeMixin):
         else:
             logging.info("Use this dir: {}\n".format(self.config.value("MouthDir")))
             phonemedict = {}
-            for files in os.listdir(self.config.value("MouthDir")):
-                phonemedict[os.path.splitext(files)[0]] = os.path.splitext(files)[1]
+            for files in Path(self.config.value("MouthDir")).iterdir():
+                phonemedict[files.stem] = files.suffix
             for phoneme in self.leaves:
                 try:
                     shutil.copy(

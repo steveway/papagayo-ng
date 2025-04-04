@@ -19,8 +19,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-# import os
-import os
+from pathlib import Path
+import path_utils
 
 from PySide6 import QtGui, QtCore, QtWidgets
 
@@ -107,11 +107,12 @@ class MouthView(QtWidgets.QGraphicsView):
                 has_images = True
         if not has_images:
             return
-        self.add_mouth(os.path.normpath(dir_name), names)
+        self.add_mouth(dir_name, names)
 
     def load_mouths(self):
         supported_imagetypes = QtGui.QImageReader.supportedImageFormats()
-        for directory, dir_names, file_names in os.walk(os.path.join(utilities.get_main_dir(), "rsrc", "mouths")):
+        mouth_dir = Path(path_utils.get_resource_path("rsrc", "mouths"))
+        for directory, dir_names, file_names in mouth_dir.walk():
             self.process_mouth_dir(directory, file_names, supported_imagetypes)
 
     def add_mouth(self, dir_name, names):
@@ -119,10 +120,8 @@ class MouthView(QtWidgets.QGraphicsView):
         for files in names:
             if ".svn" in files:
                 continue
-            path = os.path.normpath(os.path.join(dir_name, files))
+            path = dir_name.joinpath(files)
             bitmaps[files.split('.')[0]] = QtGui.QPixmap(path)
-        self.mouths[os.path.basename(dir_name)] = bitmaps
+        self.mouths[dir_name.name] = bitmaps
         if self.current_mouth is None:
-            self.current_mouth = os.path.basename(dir_name)
-
-# end of class MouthView
+            self.current_mouth = dir_name.name

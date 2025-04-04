@@ -19,19 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-import os
-
-import PySide6.QtCore as QtCore
-import PySide6.QtGui as QtGui
 import yaml
-from PySide6.QtGui import QDesktopServices
-import PySide6.QtWidgets as QtWidgets
-# from PySide6.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
-
+from pathlib import Path
+from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtUiTools import QUiLoader as uic
 from PySide6.QtCore import QFile
 
-import utilities
+import path_utils
 
 
 class AboutBox:
@@ -39,24 +33,29 @@ class AboutBox:
         self.loader = None
         self.ui = None
         self.ui_file = None
-        self.main_window = self.load_ui_widget(os.path.join(utilities.get_main_dir(), "rsrc", "about_box.ui"))
-        self.main_window.setWindowIcon(QtGui.QIcon(os.path.join(utilities.get_main_dir(), "rsrc", "window_icon.bmp")))
+        about_box_ui = path_utils.get_resource_path("rsrc", "about_box.ui")
+        self.main_window = self.load_ui_widget(about_box_ui)
+        icon_path = path_utils.get_resource_path("rsrc", "window_icon.bmp")
+        self.main_window.setWindowIcon(QtGui.QIcon(str(icon_path)))
         self.main_window.about_ok_button.clicked.connect(self.close)
         self.main_window.license.anchorClicked.connect(self.open_license)
-        self.main_window.license_version.setText("Version: {}".format(self.get_version_from_yaml()))
-        self.markdown_url = QtCore.QUrl("file:///{}".format(os.path.join(utilities.get_main_dir(),
-                                                                         "about_markdown.html")))
+        self.main_window.license_version.setText(f"Version: {self.get_version_from_yaml()}")
+        about_md = path_utils.get_file_inside_exe("about_markdown.html")
+        self.markdown_url = QtCore.QUrl.fromLocalFile(str(about_md))
         self.main_window.license.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.main_window.license.setSource(self.markdown_url)
 
     def get_version_from_yaml(self):
-        version_file = open(os.path.join(utilities.get_main_dir(), "version_information.txt"))
+        version_file = open(path_utils.get_file_inside_exe("version_information.txt"))
         version_data = yaml.safe_load(version_file)
         return version_data["Version"]
 
     def open_license(self, event):
-        if event.toString() == "gpl.html":
-            license_path = QtCore.QUrl("file:///{}".format(os.path.join(utilities.get_main_dir(), "rsrc", "gpl.html")))
+        print(f"Clicked on {event.toString()}")
+        if event.toString() == "rsrc/gpl.html":
+            license_path = QtCore.QUrl.fromLocalFile(
+                str(path_utils.get_resource_path("rsrc", "gpl.html"))
+            )
             QtGui.QDesktopServices.openUrl(license_path)
         else:
             QtGui.QDesktopServices.openUrl(event)

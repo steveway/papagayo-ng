@@ -20,6 +20,7 @@ import math
 
 import json
 import fnmatch
+from pathlib import Path
 from scipy.signal import find_peaks
 
 import recognizer
@@ -44,8 +45,8 @@ import utilities
 
 logger = logging.getLogger('LipsyncDoc')
 
-ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+ini_path = utilities.get_app_data_path() / "settings.ini"
+config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
 
 if config.value("audio_output", "old") == "old":
     import SoundPlayer as SoundPlayer
@@ -162,8 +163,8 @@ class LanguageManager:
 class LipsyncDoc:
     def __init__(self, langman: LanguageManager, parent):
         self._dirty = False
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+        ini_path = utilities.get_app_data_path() / "settings.ini"
+        self.settings = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
         self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
         self.name = "Untitled"
         self.path = None
@@ -198,38 +199,13 @@ class LipsyncDoc:
         self.sound = None
         self.voices = []
         self.current_voice = None
-        file_data = open(self.path, "r")
-        json_data = json.load(file_data)
-        self.soundPath = json_data.get("sound_path", "")
-        if not os.path.isabs(self.soundPath):
-            self.soundPath = os.path.normpath("{}/{}".format(os.path.dirname(self.path), self.soundPath))
-        self.fps = json_data["fps"]
-        self.soundDuration = json_data["sound_duration"]
-        self.project_node.sound_duration = self.soundDuration
-        self.parent.phonemeset.selected_set = json_data.get("phoneme_set", "preston_blair")
-        num_voices = json_data["num_voices"]
-        for voice in json_data["voices"]:
-            temp_voice = LipSyncObject(name=voice["name"], text=voice["text"], num_children=voice["num_children"],
-                                       fps=self.fps, parent=self.project_node, object_type="voice",
-                                       sound_duration=self.soundDuration)
-            for phrase in voice["phrases"]:
-                temp_phrase = LipSyncObject(text=phrase["text"], start_frame=phrase["start_frame"],
-                                            end_frame=phrase["end_frame"], tags=phrase["tags"], fps=self.fps,
-                                            object_type="phrase", parent=temp_voice, sound_duration=self.soundDuration)
-                for word in phrase["words"]:
-                    temp_word = LipSyncObject(text=word["text"], start_frame=word["start_frame"], fps=self.fps,
-                                              end_frame=word["end_frame"], tags=word["tags"], object_type="word",
-                                              parent=temp_phrase, sound_duration=self.soundDuration)
-                    for phoneme in word["phonemes"]:
-                        temp_phoneme = LipSyncObject(text=phoneme["text"], start_frame=phoneme["frame"],
-                                                     end_frame=phoneme["frame"], tags=phoneme["tags"], fps=self.fps,
-                                                     object_type="phoneme", parent=temp_word,
-                                                     sound_duration=self.soundDuration)
-            self.voices.append(temp_voice)
-        file_data.close()
-        self.open_audio(self.soundPath)
-        if len(self.voices) > 0:
-            self.current_voice = self.voices[0]
+        try:
+            with Path(path).open() as f:
+                json_data = json.load(f)
+            self.open_from_dict(json_data)
+        except Exception as e:
+            logging.error(f"Error opening JSON file {path}: {str(e)}")
+            raise
 
     def open(self, path):
         self._dirty = False
@@ -372,6 +348,9 @@ class LipsyncDoc:
         return out_dict
 
     def save2(self, path):
+        output_dict = self.copy_to_dict()
+        with Path(path).open('w') as f:
+            json.dump(output_dict, f, indent=4)
         self.path = os.path.normpath(path)
         self.name = os.path.basename(path)
         self.project_node.name = self.name
@@ -379,10 +358,7 @@ class LipsyncDoc:
             saved_sound_path = os.path.basename(self.soundPath)
         else:
             saved_sound_path = self.soundPath
-        out_json = self.copy_to_dict(saved_sound_path)
-        file_path = open(self.path, "w")
-        json.dump(out_json, file_path, indent=True)
-        file_path.close()
+        self._dirty = False
 
     def save(self, path):
         self.path = os.path.normpath(path)
@@ -572,9 +548,9 @@ class PhonemeSet:
         self.conversion = {}
         self.alternatives = []
         self.alternate_conversions = {}
-        for file in os.listdir(os.path.join(utilities.get_main_dir(), "phonemes")):
-            if fnmatch.fnmatch(file, '*.json'):
-                self.alternatives.append(file.split(".")[0])
+        phonemes_dir = utilities.get_main_dir() / "phonemes"
+        for file in phonemes_dir.glob('*.json'):
+            self.alternatives.append(file.stem)
 
         # Try to load Preston Blair as default as before, but fall back just in case
         self.selected_set = self.load("preston_blair")
@@ -584,7 +560,8 @@ class PhonemeSet:
 
     def load(self, name=''):
         if name in self.alternatives:
-            with open(os.path.join(utilities.get_main_dir(), "./phonemes/{}.json".format(name)), "r") as loaded_file:
+            phoneme_file = utilities.get_main_dir() / "phonemes" / f"{name}.json"
+            with phoneme_file.open() as loaded_file:
                 json_data = json.load(loaded_file)
                 self.set = json_data["phoneme_set"]
                 if name.lower() != "cmu_39":
@@ -597,5 +574,5 @@ class PhonemeSet:
                         self.alternate_conversions[key] = json_data[key]
                 return name
         else:
-            logging.info(("Can't find phonemeset! ({})".format(name)))
+            logging.info(f"Can't find phonemeset! ({name})")
             return False

@@ -50,10 +50,10 @@ class ComboRecognizer:
             ('CUDAExecutionProvider', {"cudnn_conv_algo_search": "HEURISTIC", "device_id": current_torch_device})]
         self.model_output = Queue()
         self.providers = self.ep_list
-        self.emotion_model_path = emotion_model_path
-        self.phoneme_model_path = phoneme_model_path
-        self.emotion_model_name = Path(emotion_model_path).name if emotion_model_path else ""
-        self.phoneme_model_name = Path(phoneme_model_path).name if phoneme_model_path else ""
+        self.emotion_model_path = Path(emotion_model_path) if emotion_model_path else None
+        self.phoneme_model_path = Path(phoneme_model_path) if phoneme_model_path else None
+        self.emotion_model_name = self.emotion_model_path.name if emotion_model_path else ""
+        self.phoneme_model_name = self.phoneme_model_path.name if phoneme_model_path else ""
 
         # Initialize models
         try:
@@ -78,18 +78,18 @@ class ComboRecognizer:
             self._load_settings(self.phoneme_model_path, "phoneme")
 
     def _load_model(self, model_path):
-        if not model_path or model_path.endswith("/_onnx"):
+        if not model_path or str(model_path).endswith("/_onnx"):
             return False
         print(f"Trying to load model from {model_path}.")
-        glob_result = glob.glob(model_path + "/*.onnx")
-        if len(glob_result) == 0:
+        onnx_files = list(model_path.glob("*.onnx"))
+        if not onnx_files:
             raise Exception(f"No onnx model found in {model_path}.")
 
-        onnx_file = glob_result[0]
+        onnx_file = onnx_files[0]
         session_options = ort.SessionOptions()
         session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        return ort.InferenceSession(onnx_file, sess_options=session_options,
-                                    providers=self.providers)  # , processor
+        return ort.InferenceSession(str(onnx_file), sess_options=session_options,
+                                    providers=self.providers)
 
     def get_gpu_info(self):
         return ort.get_device()
@@ -98,30 +98,32 @@ class ComboRecognizer:
         return ort.get_available_providers()
 
     def change_model(self, model_path, model_type="phoneme"):
+        model_path = Path(model_path)
         if model_type == "phoneme":
             self.phoneme_model_path = model_path
-            self.phoneme_model_name = Path(model_path).name
+            self.phoneme_model_name = model_path.name
             self.phoneme_model = self._load_model(model_path)
         if model_type == "emotion":
             self.emotion_model_path = model_path
-            self.emotion_model_name = Path(model_path).name
+            self.emotion_model_name = model_path.name
             self.emotion_model = self._load_model(model_path)
         # Model changed, we need to load the settings
         self._load_settings(model_path, model_type)
 
     def _load_settings(self, model_path, model_type="phoneme"):
-        if not model_path or model_path.endswith("/_onnx"):
-            return False
-        settings_path = glob.glob(model_path + "/*.yaml")[0]
-        print(f"Loading settings from: {settings_path}")
+        model_path = Path(model_path)
+        settings_path = list(model_path.glob("*.yaml"))[0]
+        print(f"Loading settings from {settings_path}")
 
         with open(settings_path, 'r') as f:
             if model_type == "phoneme":
                 self.phoneme_settings = yaml.safe_load(f)
                 settings = self.phoneme_settings
                 # Load tokens from .tokens file
-                tokens_file = settings_path.replace('.yaml', '.tokens')
-                if os.path.exists(tokens_file):
+                tokens_file = Path(settings_path.parent / (settings_path.stem + ".tokens"))
+                print(f"Loading tokens from: {tokens_file}")
+
+                if tokens_file.exists():
                     print(f"Loading tokens from: {tokens_file}")
                     self.token_dict = {}
                     with open(tokens_file, 'r', encoding='utf-8') as tf:
@@ -132,11 +134,11 @@ class ComboRecognizer:
                                 token = token.strip().strip("'")
                                 self.token_dict[int(idx)] = token
                     print(f"Loaded {len(self.token_dict)} tokens")
-                else:
-                    print(f"Warning: No tokens file found at {tokens_file}")
-            if model_type == "emotion":
-                self.emotion_settings = yaml.safe_load(f)
-                settings = self.emotion_settings
+            else:
+                print(f"Warning: No tokens file found at {tokens_file}")
+                if model_type == "emotion":
+                    self.emotion_settings = yaml.safe_load(f)
+                    settings = self.emotion_settings
 
         if settings['shape'] == [1, 1024, 128]:
             self.works = False

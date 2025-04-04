@@ -2,7 +2,6 @@
 Utility module for handling file paths in different execution contexts (development, packed exe, etc.)
 """
 
-import os
 import sys
 from pathlib import Path
 from appdirs import user_data_dir, user_config_dir
@@ -22,7 +21,7 @@ def get_file_inside_exe(file_name: str) -> str:
     Returns:
         str: Absolute path to the file
     """
-    return os.path.join(os.path.dirname(__file__), file_name)
+    return str(Path(__file__).parent / file_name)
 
 def get_file_near_exe(file_name: str) -> str:
     """
@@ -37,11 +36,11 @@ def get_file_near_exe(file_name: str) -> str:
     """
     try:
         # When running as compiled exe
-        file_path = os.path.join(__compiled__.containing_dir, file_name)
+        file_path = Path(__compiled__.containing_dir) / file_name
     except NameError:
         # When running from source
-        file_path = os.path.join(os.path.dirname(sys.argv[0]), file_name)
-    return file_path
+        file_path = Path(sys.argv[0]).parent / file_name
+    return str(file_path)
 
 def get_user_data_path(file_name: str = "") -> str:
     """
@@ -86,13 +85,13 @@ def get_resource_path(resource_type: str, file_name: str) -> str:
         str: Absolute path to the resource file
     """
     # First try inside exe/package
-    resource_path = get_file_inside_exe(os.path.join(resource_type, file_name))
-    if os.path.exists(resource_path):
-        return resource_path
+    resource_path = Path(get_file_inside_exe(str(Path(resource_type) / file_name)))
+    if resource_path.exists():
+        return str(resource_path)
         
     # Then try next to exe
-    resource_path = get_file_near_exe(os.path.join(resource_type, file_name))
-    if os.path.exists(resource_path):
-        return resource_path
+    resource_path = Path(get_file_near_exe(str(Path(resource_type) / file_name)))
+    if resource_path.exists():
+        return str(resource_path)
         
     raise FileNotFoundError(f"Could not find resource {file_name} in {resource_type} directory")

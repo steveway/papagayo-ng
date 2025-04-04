@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: ISO-8859-1 -*-
 
-import os
 import math
 import re
 from PySide6 import QtCore, QtGui
@@ -11,8 +10,8 @@ import utilities
 class MovableButton(QtWidgets.QPushButton):
     def __init__(self, lipsync_object, wfv_parent, phoneme_offset=None):
         super(MovableButton, self).__init__(lipsync_object.text, None)
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+        ini_path = utilities.get_app_data_path() / "settings.ini"
+        self.settings = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
         self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
         self.title = lipsync_object.text
         self.node = lipsync_object

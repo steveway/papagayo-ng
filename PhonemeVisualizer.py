@@ -18,6 +18,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import os
+import path_utils
+from pathlib import Path
 import sys
 
 from PySide6 import QtCore, QtWidgets, QtGui
@@ -101,7 +103,8 @@ class PronunciationDialog(QMainWindow):
         self.mouth_choice.currentIndexChanged.connect(self.on_mouth_choice)
         self.set_phoneme_picture(self.current_phoneme)
         self.main_widget.setLayout(self.box)
-        self.setWindowIcon(QtGui.QIcon(os.path.join(utilities.get_main_dir(), "rsrc", "window_icon.bmp")))
+        icon_path = path_utils.get_resource_path("rsrc", "window_icon.bmp")
+        self.setWindowIcon(QtGui.QIcon(icon_path))
         self.show()
 
     def change_phoneme_buttons(self):
@@ -144,6 +147,8 @@ class PronunciationDialog(QMainWindow):
 
     def on_mouth_choice(self, event=None):
         self.current_mouth = self.mouth_choice.currentText()
+        print(f"Selected Mouth: {self.current_mouth}")
+        self.set_phoneme_picture(self.current_phoneme)
         # self.mouth_view.draw_me()
 
     def on_accept(self):
@@ -169,11 +174,12 @@ class PronunciationDialog(QMainWindow):
                 has_images = True
         if not has_images:
             return
-        self.add_mouth(os.path.normpath(dir_name), names)
+        self.add_mouth(dir_name, names)
 
     def load_mouths(self):
         supported_imagetypes = QtGui.QImageReader.supportedImageFormats()
-        for directory, dir_names, file_names in os.walk(os.path.join(utilities.get_main_dir(), "rsrc", "mouths")):
+        mouth_dir = Path(path_utils.get_resource_path("rsrc", "mouths"))
+        for directory, dir_names, file_names in mouth_dir.walk():
             self.process_mouth_dir(directory, file_names, supported_imagetypes)
 
     def add_mouth(self, dir_name, names):
@@ -181,11 +187,12 @@ class PronunciationDialog(QMainWindow):
         for files in names:
             if ".svn" in files:
                 continue
-            path = os.path.normpath(os.path.join(dir_name, files))
+            path = dir_name.joinpath(files)
+            # path = os.path.normpath(os.path.join(dir_name, files))
             bitmaps[files.split('.')[0]] = QtGui.QPixmap(path)
         self.mouths[os.path.basename(dir_name)] = bitmaps
         if self.current_mouth is None:
-            self.current_mouth = os.path.basename(dir_name)
+            self.current_mouth = dir_name.name
 
     def set_phoneme_picture(self, phoneme):
         if not self.current_mouth:

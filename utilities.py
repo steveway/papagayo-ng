@@ -1,11 +1,10 @@
-import os
 import platform
 import shutil
 import sys
 import traceback
 import appdirs
 import logging
-
+from pathlib import Path
 from PySide6 import QtCore, QtGui
 
 original_colors = {"wave_fill_color": QtGui.QColor(162, 205, 242),
@@ -33,26 +32,26 @@ def get_main_dir():
     """ Get absolute path to resource, works for dev and for PyInstaller """
     # PyInstaller creates a temp folder and stores path in _MEIPASS
     if hasattr(sys, "_MEIPASS"):
-        base_path = os.path.dirname(sys.executable)
+        base_path = Path(sys.executable).parent
     else:
-        base_path = os.path.abspath(".")
+        base_path = Path(".").absolute()
     return base_path
 
 
 def get_app_data_path():
     app_name = "PapagayoNG"
     app_author = "Morevna Project"
-    user_data_dir = appdirs.user_data_dir(app_name, app_author)
+    user_data_dir = Path(appdirs.user_data_dir(app_name, app_author))
     # If user data dir does not exist yet we create it.
-    author_dir = os.path.abspath(os.path.join(user_data_dir, os.pardir))
-    if not os.path.exists(author_dir):
-        os.mkdir(author_dir)
-    if not os.path.exists(user_data_dir):
-        os.mkdir(user_data_dir)
-    ini_path = os.path.join(user_data_dir, "settings.ini")
-    config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+    author_dir = user_data_dir.parent
+    if not author_dir.exists():
+        author_dir.mkdir()
+    if not user_data_dir.exists():
+        user_data_dir.mkdir()
+    ini_path = user_data_dir / "settings.ini"
+    config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
     config.setFallbacksEnabled(False)  # File only, not registry or or.
-    config.setValue("appdata_dir", user_data_dir)
+    config.setValue("appdata_dir", str(user_data_dir))
 
     return user_data_dir
 
@@ -68,9 +67,9 @@ def ffmpeg_binaries_exists():
         if platform.system() == "Darwin":
             ffmpeg_binary = "ffmpeg"
             ffprobe_binary = "ffprobe"
-        ffmpeg_path = os.path.join(get_app_data_path(), ffmpeg_binary)
-        ffprobe_path = os.path.join(get_app_data_path(), ffprobe_binary)
-        if not os.path.exists(ffmpeg_path) or not os.path.exists(ffprobe_path):
+        ffmpeg_path = get_app_data_path() / ffmpeg_binary
+        ffprobe_path = get_app_data_path() / ffprobe_binary
+        if not ffmpeg_path.exists() or not ffprobe_path.exists():
             return False
         else:
             return True
@@ -78,9 +77,9 @@ def ffmpeg_binaries_exists():
 
 
 def allosaurus_model_exists():
-    allosaurus_model_path = os.path.join(get_app_data_path(), "allosaurus_model", "latest")
-    if os.path.exists(allosaurus_model_path):
-        if not os.listdir(allosaurus_model_path):
+    allosaurus_model_path = get_app_data_path() / "allosaurus_model" / "latest"
+    if allosaurus_model_path.exists():
+        if not any(allosaurus_model_path.iterdir()):
             return False
         else:
             return True
@@ -89,10 +88,10 @@ def allosaurus_model_exists():
 
 
 def rhubarb_binaries_exists():
-    rhubarb_path = os.path.join(get_app_data_path(), "rhubarb/rhubarb.exe")
+    rhubarb_path = get_app_data_path() / "rhubarb/rhubarb.exe"
     if platform.system() == "Darwin":
-        rhubarb_path = os.path.join(get_app_data_path(), "rhubarb/rhubarb")
-    if os.path.exists(rhubarb_path):
+        rhubarb_path = get_app_data_path() / "rhubarb/rhubarb"
+    if rhubarb_path.exists():
         return True
     else:
         return False
@@ -125,10 +124,10 @@ class ApplicationTranslator:
     def __init__(self):
         self.app = QtCore.QCoreApplication.instance()
         self.translator = QtCore.QTranslator()
-        ini_path = os.path.join(get_app_data_path(), "settings.ini")
-        config = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
+        ini_path = get_app_data_path() / "settings.ini"
+        config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
         config.setFallbacksEnabled(False)  # File only, not registry or or.
-        self.translator.load(str(config.value("language", "en_us")), os.path.join(get_main_dir(), "rsrc", "i18n"))
+        self.translator.load(str(config.value("language", "en_us")), str(get_main_dir() / "rsrc" / "i18n"))
         self.app.installTranslator(self.translator)
 
     def translate(self, context, text):

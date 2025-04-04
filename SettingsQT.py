@@ -168,7 +168,7 @@ class SettingsWindow:
         event.setStyleSheet(style)
 
     def open_app_data(self):
-        qt_url = QtCore.QUrl(r"file:///" + utilities.get_app_data_path(), QtCore.QUrl.TolerantMode)
+        qt_url = QtCore.QUrl.fromLocalFile(utilities.get_app_data_path().as_posix())
         QtGui.QDesktopServices.openUrl(qt_url)
 
     def delete_ffmpeg(self):
@@ -212,7 +212,7 @@ class SettingsWindow:
             self.main_window.run_voice_recognition.setChecked(True)
         else:
             self.main_window.run_voice_recognition.setChecked(False)
-        self.main_window.app_data_path.setText(utilities.get_app_data_path())
+        self.main_window.app_data_path.setText(utilities.get_app_data_path().as_posix())
         self.main_window.model_name.setText(self.settings.value("/VoiceRecognition/allosaurus_model", "latest"))
         self.main_window.app_data_path.home(True)
         list_of_recognizers = ["Allosaurus", "Rhubarb", "ONNX"]

@@ -27,8 +27,9 @@
 import argparse
 import ctypes
 import tempfile
+from pathlib import Path
 
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtCore
 
 import utilities
 import logging
@@ -47,8 +48,8 @@ try:
 except ImportError:
     pyi_splash = None
 
-file_path = os.path.join(utilities.get_app_data_path(), "runtime.log")
-logging.basicConfig(filename=file_path, encoding='utf-8', level=logging.INFO,
+log_file = utilities.get_app_data_path() / "runtime.log"
+logging.basicConfig(filename=str(log_file), encoding='utf-8', level=logging.INFO,
                     format="%(asctime)s:%(funcName)s:%(lineno)d:%(message)s")
 
 
@@ -97,8 +98,8 @@ def parse_cli():
     list_of_input_files = []
     langman = LipsyncFrameQT.LipsyncDoc.LanguageManager()
     langman.init_languages()
-    ini_path = os.path.join(LipsyncFrameQT.utilities.get_app_data_path(), "settings.ini")
-    config = LipsyncFrameQT.QtCore.QSettings(ini_path, LipsyncFrameQT.QtCore.QSettings.Format.IniFormat)
+    ini_path = Path(LipsyncFrameQT.utilities.get_app_data_path()) / "settings.ini"
+    config = LipsyncFrameQT.QtCore.QSettings(str(ini_path), LipsyncFrameQT.QtCore.QSettings.Format.IniFormat)
     if not args.use_cli:
         config.setValue("audio_output", "new")
     else:
@@ -177,19 +178,16 @@ def parse_cli():
 
 
 if __name__ == "__main__":
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
     init_logging()
 
     if pyi_splash:
         pyi_splash.close()
     # Use this code to signal the splash screen removal.
     if "NUITKA_ONEFILE_PARENT" in os.environ:
-        splash_filename = os.path.join(
-            tempfile.gettempdir(),
-            "onefile_%d_splash_feedback.tmp" % int(os.environ["NUITKA_ONEFILE_PARENT"]),
-        )
-
-        if os.path.exists(splash_filename):
-            os.unlink(splash_filename)
+        splash_file = Path(tempfile.gettempdir()) / f"onefile_{os.environ['NUITKA_ONEFILE_PARENT']}_splash_feedback.tmp"
+        if splash_file.exists():
+            splash_file.unlink()
     application = QtWidgets.QApplication(sys.argv)
     use_cli = parse_cli()
     if not use_cli:
