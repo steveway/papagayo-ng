@@ -999,16 +999,19 @@ class LipsyncDoc:
         if str(self.settings.value("/VoiceRecognition/run_voice_recognition",
                                    "true")).lower() == "true" or manual_invoke:
             recognizer_type = self.settings.value("/VoiceRecognition/recognizer", "Allosaurus")
+            distribution_mode = self.settings.value("/VoiceRecognition/distribution_mode", "peaks")
             
             if recognizer_type == "ONNX":
                 try:
                     model_path = self.settings.value("/VoiceRecognition/onnx_model", "default")
                     model_dir = ensure_model_exists(model_path, model_type="phoneme")
+                    print(f"Using ONNX model: {model_dir}")
                     phoneme_recognizer = recognizer.ComboRecognizer(model_dir)
                 except Exception as e:
                     print(f"Failed to use ONNX model: {str(e)}")
                     phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
-                    phoneme_recognizer.change_model(model_path, "phoneme")
+                    model_dir = ensure_model_exists(model_path, model_type="phoneme")
+                    phoneme_recognizer.change_model(model_dir, "phoneme")
             else:
                 phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
             
@@ -1017,47 +1020,50 @@ class LipsyncDoc:
             phonemes = get_best_fitting_output_from_list(phonemes, ipa_convert)
             print(f"Auto-Recognized Phonemes: {phonemes}")
             print(f"Number of Phonemes: {len(phonemes)}")
-            peaks = find_peaks(self.sound.soundfile, distance=2048)
-            print(f"Auto-Recognized Peaks: {peaks}")
-            print(f"Number of Peaks: {len(peaks[0])}")
-            phonemes_as_text = ""
-            # end_frame = math.floor(self.fps * (results[-1]["start"] + results[-1]["duration"] * 2))
-            end_frame = (len(self.sound.soundfile) / self.sound.samplerate) * self.fps
-            print(f"Auto-Recognized End Frame: {end_frame}")
-            peak_divisor = len(self.sound.soundfile) / end_frame
-            print(f"Auto-Recognized Peak Divisor: {peak_divisor}")
-            fitted_peaks = peaks[0] / peak_divisor
-            fitted_peaks = fitted_peaks.round().astype(int)
-            fitted_peaks = list(fitted_peaks)
-            fitted_peaks.append(int(round(end_frame)))
-            fitted_peaks.append(0)
-            fitted_peaks = list(set(fitted_peaks))
-            fitted_peaks.sort()
-            print(f"Auto-Recognized Fitted Peaks: {fitted_peaks}")
-            print(f"Auto-Recognized Fitted Peaks Number: {len(fitted_peaks)}")
+            if distribution_mode == "peaks":
+                peaks = find_peaks(self.sound.soundfile, distance=2048)
+                print(f"Auto-Recognized Peaks: {peaks}")
+                print(f"Number of Peaks: {len(peaks[0])}")
+                peak_divisor = len(self.sound.soundfile) / (self.soundDuration)
+                print(f"Auto-Recognized Peak Divisor: {peak_divisor}")
+                fitted_peaks = peaks[0] / peak_divisor
+                fitted_peaks = fitted_peaks.round().astype(int)
+                fitted_peaks = list(fitted_peaks)
+                fitted_peaks.append(int(round(self.soundDuration)))
+                fitted_peaks.append(0)
+                fitted_peaks = list(set(fitted_peaks))
+                fitted_peaks.sort()
+                print(f"Auto-Recognized Fitted Peaks: {fitted_peaks}")
+                print(f"Auto-Recognized Fitted Peaks Number: {len(fitted_peaks)}")
 
+                number_of_words = int(len(fitted_peaks) / 2) - 1
+                print(f"Auto-Recognized Number of Words: {number_of_words}")
+                available_frames = 0
+                for i in range(number_of_words):
+                    available_frames += fitted_peaks[i + 1] - fitted_peaks[i]
+                print(f"Auto-Recognized Available Frames: {available_frames}")
+                list_of_words = []
+                k = 0
+                while k < len(fitted_peaks) - 1:
+                    peak_left = fitted_peaks[k]
+                    peak_right = fitted_peaks[k + 1]
+                    list_of_words.append((peak_left, peak_right))
+                    k += 2
+                print(f"Auto-Recognized List of Words: {list_of_words}")
+                print(f"Auto-Recognized List of Words Number: {len(list_of_words)}")
+                phonemes_per_word = math.ceil(len(phonemes) / len(list_of_words))
+                print(f"Auto-Recognized Phonemes Per Word: {phonemes_per_word}")
+            else:
+                list_of_words = [(0, self.soundDuration)]  # Single "word" spanning the whole timeline
+                phonemes_per_word = len(phonemes)
+                print(f"Even distribution mode - all phonemes spread across timeline")
+            
             phrase = LipSyncObject(object_type="phrase", parent=self.current_voice)
-            phrase.text = 'Auto detection Allosaurus'
+            phrase.text = f'Auto detection {recognizer_type}'
             phrase.start_frame = 0
-            phrase.end_frame = end_frame
+            phrase.end_frame = self.soundDuration
             self.parent.phonemeset.selected_set = self.parent.phonemeset.load("CMU_39")
-            number_of_words = int(len(fitted_peaks) / 2) - 1
-            print(f"Auto-Recognized Number of Words: {number_of_words}")
-            available_frames = 0
-            for i in range(number_of_words):
-                available_frames += fitted_peaks[i + 1] - fitted_peaks[i]
-            print(f"Auto-Recognized Available Frames: {available_frames}")
-            list_of_words = []
-            k = 0
-            while k < len(fitted_peaks) - 1:
-                peak_left = fitted_peaks[k]
-                peak_right = fitted_peaks[k + 1]
-                list_of_words.append((peak_left, peak_right))
-                k += 2
-            print(f"Auto-Recognized List of Words: {list_of_words}")
-            print(f"Auto-Recognized List of Words Number: {len(list_of_words)}")
-            phonemes_per_word = math.ceil(len(phonemes) / len(list_of_words))
-            print(f"Auto-Recognized Phonemes Per Word: {phonemes_per_word}")
+
             phoneme_pointer = 0
             remaining_phonemes = len(phonemes)
             for i, word in enumerate(list_of_words):
@@ -1095,118 +1101,6 @@ class LipsyncDoc:
                     pg_phoneme.start_frame = pg_phoneme.end_frame = peak_left + j
                     pg_phoneme.text = phoneme.upper() if phoneme != "rest" else phoneme
                     j += 1
-
-                # word_chunk = phonemes[peak_left:peak_right]
-                # word = LipSyncObject(object_type="word", parent=phrase)
-                #
-                # word.text = "|".join(phoneme for phoneme in word_chunk)
-                # word.start_frame = peak_left
-                # # word.end_frame = math.floor(self.fps * results[peak_right]["start"])
-                # previous_frame_pos = peak_left - 1
-                # for j in range(len(word_chunk)):
-                #     current_frame_pos = word.start_frame + j
-                #     if current_frame_pos == previous_frame_pos:
-                #         current_frame_pos += 1
-                #
-                #     pg_phoneme = LipSyncObject(object_type="phoneme", parent=word)
-                #     pg_phoneme.start_frame = pg_phoneme.end_frame = current_frame_pos
-                #     previous_frame_pos = current_frame_pos
-                #     pg_phoneme.text = word_chunk[j]
-                #     # word.phonemes.append(pg_phoneme)
-                #     phonemes_as_text += pg_phoneme.text
-                # phonemes_as_text += " "
-                # word.end_frame = previous_frame_pos + 1
-                # if i >= number_of_words:
-                #     break
-
-            if False:
-                if self.settings.value("/VoiceRecognition/recognizer", "Allosaurus") == "Allosaurus":
-                    allo_recognizer = auto_recognition.AutoRecognize(self.soundPath)
-                    out_or_none = allo_recognizer.recognize_allosaurus()
-                    if out_or_none is None:
-                        logger.warning('recognize_allosaurus returned None; no results')
-                        # set default/empty values on none
-                        results, peaks, allo_output = (None, None, None)
-                    else:
-                        results, peaks, allo_output = out_or_none
-
-                    if results:
-                        phonemes_as_text = ""
-                        end_frame = math.floor(self.fps * (results[-1]["start"] + results[-1]["duration"] * 2))
-                        phrase = LipSyncObject(object_type="phrase", parent=self.current_voice)
-                        phrase.text = 'Auto detection Allosaurus'
-                        phrase.start_frame = 0
-                        phrase.end_frame = end_frame
-                        for i in range(len(peaks) - 1):
-                            peak_left = peaks[i]
-                            peak_right = peaks[i + 1]
-
-                            word_chunk = results[peak_left:peak_right]
-                            word = LipSyncObject(object_type="word", parent=phrase)
-
-                            word.text = "|".join(
-                                letter["phoneme"] if letter["phoneme"] is not None else "rest" for letter in word_chunk)
-                            word.start_frame = math.floor(self.fps * results[peak_left]["start"])
-                            # word.end_frame = math.floor(self.fps * results[peak_right]["start"])
-                            previous_frame_pos = math.floor(self.fps * results[peak_left]["start"]) - 1
-                            for phoneme in word_chunk:
-                                current_frame_pos = math.floor(self.fps * phoneme['start'])
-                                if current_frame_pos == previous_frame_pos:
-                                    current_frame_pos += 1
-                                pg_phoneme = LipSyncObject(object_type="phoneme", parent=word)
-                                pg_phoneme.start_frame = pg_phoneme.end_frame = current_frame_pos
-                                previous_frame_pos = current_frame_pos
-                                pg_phoneme.text = phoneme['phoneme'] if phoneme['phoneme'] is not None else 'rest'
-                                # word.phonemes.append(pg_phoneme)
-                                phonemes_as_text += pg_phoneme.text
-                            phonemes_as_text += " "
-                            word.end_frame = previous_frame_pos + 1
-                            # phrase.words.append(word)
-                        phonemes_as_text += "\n{}".format(str(allo_output))
-                        try:
-                            self.parent.main_window.text_edit.setText(phonemes_as_text)
-                        except AttributeError:
-                            pass
-                        phrase.end_frame = phrase.children[-1].end_frame
-                        # self.current_voice.phrases.append(phrase)
-                        self.parent.phonemeset.selected_set = self.parent.phonemeset.load("CMU_39")
-                        try:
-                            current_index = self.parent.main_window.phoneme_set.findText(
-                                self.parent.phonemeset.selected_set)
-                            self.parent.main_window.phoneme_set.setCurrentIndex(current_index)
-                        except AttributeError:
-                            pass
-                elif self.settings.value("/VoiceRecognition/recognizer", "Allosaurus") == "Rhubarb":
-                    try:
-                        phonemes = Rhubarb(self.soundPath).run()
-                        if not phonemes:
-                            return
-                        end_frame = math.floor(self.fps * phonemes[-1]['end'])
-                        phrase = LipSyncObject(object_type="phrase", parent=self.current_voice)
-                        phrase.text = 'Auto detection rhubarb'
-                        phrase.start_frame = 0
-                        phrase.end_frame = end_frame
-
-                        word = LipSyncObject(object_type="word", parent=phrase)
-                        word.text = 'rhubarb'
-                        word.start_frame = 0
-                        word.end_frame = end_frame
-
-                        for phoneme in phonemes:
-                            pg_phoneme = LipSyncObject(object_type="phoneme", parent=word)
-                            pg_phoneme.start_frame = pg_phoneme.end_frame = math.floor(self.fps * phoneme['start'])
-                            pg_phoneme.text = phoneme['value'] if phoneme['value'] != 'X' else 'rest'
-                            # word.phonemes.append(pg_phoneme)
-
-                        # phrase.words.append(word)
-                        # self.current_voice.phrases.append(phrase)
-                        self.parent.phonemeset.selected_set = self.parent.phonemeset.load("rhubarb")
-                        current_index = self.parent.main_window.phoneme_set.findText(
-                            self.parent.phonemeset.selected_set)
-                        self.parent.main_window.phoneme_set.setCurrentIndex(current_index)
-
-                    except RhubarbTimeoutException:
-                        pass
 
     def __str__(self):
         out_string = "LipSyncDoc:{}|Objects:{}|Sound:{}|".format(self.name, self.project_node, self.soundPath)

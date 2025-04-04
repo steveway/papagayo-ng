@@ -215,7 +215,7 @@ class SettingsWindow:
         self.main_window.app_data_path.setText(utilities.get_app_data_path())
         self.main_window.model_name.setText(self.settings.value("/VoiceRecognition/allosaurus_model", "latest"))
         self.main_window.app_data_path.home(True)
-        list_of_recognizers = ["Allosaurus", "Rhubarb"]
+        list_of_recognizers = ["Allosaurus", "Rhubarb", "ONNX"]
         self.main_window.selected_recognizer.addItems(list_of_recognizers)
         language_list = []
         for f in os.listdir(os.path.join(utilities.get_main_dir(), "rsrc", "i18n")):
@@ -234,6 +234,8 @@ class SettingsWindow:
         recog_index = self.main_window.selected_recognizer.findText(
             self.settings.value("/VoiceRecognition/recognizer", "Allosaurus"))
         self.main_window.selected_recognizer.setCurrentIndex(recog_index)
+        self.main_window.distribution_mode.setCurrentText(
+            self.settings.value("/VoiceRecognition/distribution_mode", "peaks").capitalize())
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
             if "Color" in color_button.text():
                 new_color = QtGui.QColor(
@@ -293,6 +295,8 @@ class SettingsWindow:
         self.settings.setValue("/VoiceRecognition/allo_emission", self.main_window.voice_emission_value.value())
         self.settings.setValue("/VoiceRecognition/run_voice_recognition",
                                bool(self.main_window.run_voice_recognition.isChecked()))
+        self.settings.setValue("/VoiceRecognition/distribution_mode", 
+                               self.main_window.distribution_mode.currentText().lower())
         self.settings.setValue("qss_file_path", str(self.main_window.qss_path.text()))
         self.settings.setValue("/VoiceRecognition/recognizer", self.main_window.selected_recognizer.currentText())
         self.settings.setValue("rest_after_words", bool(self.main_window.rest_after_words.isChecked()))
