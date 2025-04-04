@@ -47,7 +47,7 @@ def generate_changelog():
         print(f"{version_change[1]} ({version_change[2]}) Hash: {version_change[0]} - {version_change[-1]}")
     commits = get_git_history(reversed=False)
     
-    changelog = '# Changelog for TomeFlow\n\n'
+    changelog = '# Changelog for Papagayo-NG\n\n'
     excluded_parts = ['Merge branch', 'webpage', 'twitter', 'Facebook', 'Update Version to', 'C++', 'Webpage']
     
     # Iterate through version changes in reverse order (newest first)
