@@ -20,3 +20,4 @@ venv/
 /rhubarb/
 /pyinstaller_build/
 .venv/
+.wix/

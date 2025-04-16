@@ -53,8 +53,9 @@ installer:
     product_name: "Papagayo-NG"
     upgrade_code: "04604d2c-88b0-58f7-8f26-40a4e4dd239f"
   ui:
-    banner_image: "rsrc/images/banner.bmp"
-    dialog_image: "rsrc/images/dialog.bmp"
+    banner_image: "rsrc/images/wix_banner_wide.bmp"
+    dialog_image: "rsrc/images/wix_background.bmp"
+  license_file: "rsrc/license.rtf"
   shortcuts:
     desktop: true
     start_menu: true

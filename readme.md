@@ -11,7 +11,7 @@ To work with the Papagayo-NG source code, you need some special software install
 * numpy>=1.16.2
 * pydub>=0.23.1
 * anytree>=2.6.0
-* PySide2>=5.12.3
+* PySide6
 
 You can use the included requirements.txt with pip to install these, like this for example:  
 ``pip install -r requirements.txt``
@@ -19,6 +19,15 @@ You can use the included requirements.txt with pip to install these, like this f
 ## Running
 To run Papagayo-NG, double-click the papagayo-ng.py file, or run the following command:  
 ``python3 papagayo-ng.py``
+
+## Building
+For Windows at least we use Nuitka via installer-creator which you can get via pip: ``pip install installer-creator``
+
+You can build the executable and installer by running:
+
+``py -m installer_creator build-exe -c build_config.yaml``
+
+``py -m installer_creator build-installer -c build_config.yaml``
 
 ## Contents
 The Papagayo-NG source package includes the following files:
