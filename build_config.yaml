@@ -1,7 +1,7 @@
 # Nuitka build configuration
 project:
   name: "Papagayo-NG"
-  version: "1.8.0.1"
+  version: "1.8.0.2"
   company: "Morevna Project"
   description: "Lip-Sync Software"
   icon: "papagayo-ng.ico"
@@ -15,11 +15,13 @@ build:
     standalone: true
     onefile: true
     splash_screen: "rsrc/splash.png"
+    remove_output: true
 
   include:
     packages:
-      - "PySide6"
       - "appdirs"
+    plugins:
+      - "pyside6"
     data_dirs:
       - source: "rsrc"
         target: "rsrc"
