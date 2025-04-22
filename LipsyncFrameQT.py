@@ -100,8 +100,8 @@ def open_file_no_gui(path, parent):
     importlib.reload(LipsyncDoc)  # This makes the CLI version work on the first try but is very hacky
     langman = LipsyncDoc.LanguageManager()
     langman.init_languages()
-    ini_path = utilities.get_app_data_path() / "settings.ini"
-    config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
+    from settings_manager import SettingsManager
+    settings = SettingsManager.get_instance()
     doc = LipsyncDoc.LipsyncDoc(langman, parent)
     if any(path.endswith(ext) for ext in lipsync_extension_list):
         if path.endswith(lipsync_extension_list[0]):
@@ -115,7 +115,7 @@ def open_file_no_gui(path, parent):
             return None
     else:
         # open an audio file
-        doc.fps = int(config.value("LastFPS", 24))
+        doc.fps = settings.get_fps()
         doc.open_audio(path)
         if doc.sound is None:
             doc = None
@@ -144,15 +144,18 @@ class LipsyncFrame:
         self.main_window = self.load_ui_widget(self.ui_path)
         self.main_window.setWindowTitle("%s" % app_title)
         self.main_window.lip_sync_frame = self
-        ini_path = utilities.get_app_data_path() / "settings.ini"
-        self.config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
-        self.config.setFallbacksEnabled(False)  # File only, not registry or or.
+        from settings_manager import SettingsManager
+        self.config = SettingsManager.get_instance()
 
         # Initialize default ONNX settings if not present
-        if not self.config.contains("/VoiceRecognition/onnx_model"):
-            self.config.setValue("/VoiceRecognition/onnx_model", "steveway/wav2phoneme")
-        if not self.config.contains("/VoiceRecognition/onnx_emotion_model"):
-            self.config.setValue("/VoiceRecognition/onnx_emotion_model", "steveway/wav2emotion")
+        onnx_model = self.config.get_onnx_model()
+        if not onnx_model:
+            self.config.set_onnx_model("steveway/wav2phoneme")
+        
+        # Handle emotion model setting
+        emotion_model = self.config.get_onnx_emotion_model()
+        if not emotion_model:
+            self.config.set_onnx_emotion_model("steveway/wav2emotion")
 
         tree_style = r'''QTreeView::branch:has-siblings:!adjoins-item {
                              border-image: url(./rsrc/vline.png) 0;}               
@@ -242,7 +245,6 @@ class LipsyncFrame:
         # Connect Events
         self.main_window.action_play.triggered.connect(self.on_play)
         self.main_window.action_stop.triggered.connect(self.on_stop)
-        self.main_window.action_exit.triggered.connect(self.quit_application)
         self.main_window.action_open.triggered.connect(self.on_open)
         self.main_window.action_save.triggered.connect(self.on_save)
         self.main_window.action_save_as.triggered.connect(self.on_save_as)
@@ -281,11 +283,11 @@ class LipsyncFrame:
         self.allo_select.setCheckable(True)
         self.rhubarb_select.setCheckable(True)
         self.onnx_select.setCheckable(True)
-        if self.config.value("/VoiceRecognition/recognizer", "Allosaurus") == "Allosaurus":
+        if self.config.get_recognizer() == "Allosaurus":
             self.allo_select.setChecked(True)
-        elif self.config.value("/VoiceRecognition/recognizer", "Allosaurus") == "Rhubarb":
+        elif self.config.get_recognizer() == "Rhubarb":
             self.rhubarb_select.setChecked(True)
-        elif self.config.value("/VoiceRecognition/recognizer", "Allosaurus") == "ONNX":
+        elif self.config.get_recognizer() == "ONNX":
             self.onnx_select.setChecked(True)
         self.allo_select.triggered.connect(partial(self.select_voice_recognizer, "Allosaurus"))
         self.rhubarb_select.triggered.connect(partial(self.select_voice_recognizer, "Rhubarb"))
@@ -336,7 +338,7 @@ class LipsyncFrame:
         dlg.exec_()
 
     def change_stylesheet(self):
-        style_file_path = str(self.config.value("qss_file_path", ""))
+        style_file_path = str(self.config.get_qss_file_path())
         if style_file_path:
             with open(style_file_path, "r") as style_file:
                 self.app.setStyleSheet(style_file.read())
@@ -390,7 +392,7 @@ class LipsyncFrame:
         QtCore.QCoreApplication.processEvents()
 
     def download_allosaurus_model(self, progress_callback):
-        model_name = str(self.config.value("/VoiceRecognition/allosaurus_model", "latest"))
+        model_name = str(self.config.get(SettingsManager.Keys.VoiceRecognition.ALLOSAURUS_MODEL, "latest"))
         url = 'https://github.com/xinjli/allosaurus/releases/download/v1.0/' + model_name + '.tar.gz'
         model_dir = utilities.get_app_data_path() / "allosaurus_model"
         with urllib.request.urlopen(url) as req:
@@ -535,7 +537,7 @@ class LipsyncFrame:
 
     def select_voice_recognizer(self, event=None):
         print(event)
-        self.config.setValue("/VoiceRecognition/recognizer", event)
+        self.config.set_recognizer(event)
         if event == "Allosaurus":
             self.allo_select.setChecked(True)
             self.rhubarb_select.setChecked(False)
@@ -685,12 +687,12 @@ class LipsyncFrame:
             if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.on_save()
                 if not self.doc.dirty:
-                    self.config.setValue("LastFPS", str(self.doc.fps))
+                    self.config.set_fps(str(self.doc.fps))
                     return True
                 else:
                     return False
             elif result == QtWidgets.QMessageBox.StandardButton.No:
-                self.config.setValue("LastFPS", str(self.doc.fps))
+                self.config.set_fps(str(self.doc.fps))
                 return True
             elif result == QtWidgets.QMessageBox.StandardButton.Cancel:
                 return False
@@ -702,11 +704,11 @@ class LipsyncFrame:
             return
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self.main_window,
                                                              "Open Audio or {} File".format(app_title),
-                                                             str(self.config.value("WorkingDir",
+                                                             str(self.config.get("WorkingDir",
                                                                                    utilities.get_main_dir())),
                                                              open_wildcard)
         if file_path:
-            self.config.setValue("WorkingDir", os.path.dirname(file_path))
+            self.config.set("WorkingDir", os.path.dirname(file_path))
             self.open(file_path)
 
     def open(self, path):
@@ -729,14 +731,14 @@ class LipsyncFrame:
                 dlg.exec_()  # This should open it as a modal blocking window
                 file_path = QtWidgets.QFileDialog.getOpenFileName(self.main_window,
                                                                   "Open Audio",
-                                                                  str(self.config.value("WorkingDir",
+                                                                  str(self.config.get("WorkingDir",
                                                                                         utilities.get_main_dir())),
                                                                   audio_extensions)[0]
                 if file_path:
                     self.doc.open_audio(file_path)
         else:
             # open an audio file
-            self.doc.fps = int(str(self.config.value("LastFPS", 24)))
+            self.doc.fps = self.config.get_fps()
             self.doc.open_audio(path)
             if self.doc.sound is None:
                 self.doc = None
@@ -763,7 +765,7 @@ class LipsyncFrame:
             self.main_window.vertical_layout_right.setEnabled(True)
             self.main_window.vertical_layout_left.setEnabled(True)
             self.main_window.volume_slider.setEnabled(True)
-            self.main_window.volume_slider.setValue(int(str(self.config.value("volume", 50))))
+            self.main_window.volume_slider.setValue(self.config.get_int("volume", 50))
             self.main_window.action_save.setEnabled(True)
             self.main_window.action_save_as.setEnabled(True)
             self.main_window.action_cut.setEnabled(True)
@@ -815,11 +817,11 @@ class LipsyncFrame:
             return
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self.main_window,
                                                              "Save {} File".format(app_title),
-                                                             str(self.config.value("WorkingDir",
-                                                                                   utilities.get_main_dir())),
+                                                             str(self.config.get("WorkingDir",
+                                                                                 utilities.get_main_dir())),
                                                              save_wildcard)
         if file_path:
-            self.config.setValue("WorkingDir", os.path.dirname(file_path))
+            self.config.set("WorkingDir", os.path.dirname(file_path))
             if file_path.endswith(lipsync_extension_list[0]):
                 self.doc.save(file_path)
             elif file_path.endswith(lipsync_extension_list[1]):
@@ -829,7 +831,7 @@ class LipsyncFrame:
     def on_close(self):
         if self.doc is not None:
             self.close_doc_ok()
-            self.config.setValue("LastFPS", str(self.doc.fps))
+            self.config.set_fps(str(self.doc.fps))
             del self.doc
         self.doc = None
         self.main_window.waveform_view.first_update = True
@@ -884,15 +886,15 @@ class LipsyncFrame:
             self.rhubarb_action.triggered.connect(lambda: self.start_download(self.download_rhubarb))
             self.main_window.menubar.addAction(self.rhubarb_action)
         self.main_window.waveform_view.set_document(self.doc, True, True)
-        if self.config.value("/VoiceRecognition/recognizer", "Allosaurus") == "Allosaurus":
+        if self.config.get_recognizer() == "Allosaurus":
             self.allo_select.setChecked(True)
             self.rhubarb_select.setChecked(False)
             self.onnx_select.setChecked(False)
-        elif self.config.value("/VoiceRecognition/recognizer", "Allosaurus") == "Rhubarb":
+        elif self.config.get_recognizer() == "Rhubarb":
             self.rhubarb_select.setChecked(True)
             self.allo_select.setChecked(False)
             self.onnx_select.setChecked(False)
-        elif self.config.value("/VoiceRecognition/recognizer", "Allosaurus") == "ONNX":
+        elif self.config.get_recognizer() == "ONNX":
             self.onnx_select.setChecked(True)
             self.allo_select.setChecked(False)
             self.rhubarb_select.setChecked(False)
@@ -983,7 +985,7 @@ class LipsyncFrame:
     def change_volume(self, e):
         if self.doc and self.doc.sound:
             self.doc.sound.set_volume(int(self.main_window.volume_slider.value()))
-            self.config.setValue("volume", int(self.main_window.volume_slider.value()))
+            self.config.set("volume", int(self.main_window.volume_slider.value()))
 
     def on_mouth_choice(self, event=None):
         self.main_window.mouth_view.current_mouth = self.main_window.mouth_choice.currentText()
@@ -1043,7 +1045,7 @@ class LipsyncFrame:
                 default_file = "{}".format(self.doc.soundPath.rsplit('.', 1)[0]) + ".dat"
                 wildcard = self.translator.translate("LipsyncFrame", "Moho switch files (*.dat)")
             elif exporter == "ALELO":
-                fps = int(str(self.config.value("FPS", 24)))
+                fps = self.config.get_fps()
                 if fps != 100:
                     dlg = QtWidgets.QMessageBox()
                     dlg.setText(self.translator.translate("LipsyncFrame",
@@ -1080,7 +1082,7 @@ class LipsyncFrame:
                                                                  options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
 
             if file_path:
-                self.config.setValue("WorkingDir", os.path.dirname(file_path))
+                self.config.set("WorkingDir", os.path.dirname(file_path))
                 if exporter == "MOHO":
                     self.doc.current_voice.export(file_path if ("." in file_path) else file_path + ".dat",
                                                   self.main_window.apply_rest_frames_on_export.isChecked())
@@ -1185,7 +1187,7 @@ class LipsyncFrame:
             voiceimage_path = QtWidgets.QFileDialog.getExistingDirectory(self.main_window,
                                                                          self.translator.translate("LipsyncFrame",
                                                                                                    "Choose Path for Images"),
-                                                                         str(self.config.value("MouthDir",
+                                                                         str(self.config.get("MouthDir",
                                                                                                os.path.join(
                                                                                                    os.path.dirname(
                                                                                                        os.path.abspath(
@@ -1193,7 +1195,7 @@ class LipsyncFrame:
                                                                                                    "rsrc",
                                                                                                    r"mouths/"))))
             if voiceimage_path:
-                self.config.setValue("MouthDir", voiceimage_path)
+                self.config.set_mouth_dir(voiceimage_path)
                 supported_imagetypes = QtGui.QImageReader.supportedImageFormats()
                 for directory, dir_names, file_names in os.walk(voiceimage_path):
                     self.main_window.mouth_view.process_mouth_dir(directory, file_names, supported_imagetypes)
@@ -1210,8 +1212,5 @@ class LipsyncFrame:
         logging.info("reload the dictionary")
         lang_config = self.doc.language_manager.language_table[self.main_window.language_choice.currentText()]
         self.doc.language_manager.load_language(lang_config, force=True)
-
-    def quit_application(self):
-        sys.exit(self.app.exec_())
 
 # end of class LipsyncFrame

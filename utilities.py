@@ -49,6 +49,8 @@ def get_app_data_path():
     if not user_data_dir.exists():
         user_data_dir.mkdir()
     ini_path = user_data_dir / "settings.ini"
+    # We need to use QSettings directly here since this function is called before
+    # the settings manager is initialized, and the settings manager itself uses this function
     config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
     config.setFallbacksEnabled(False)  # File only, not registry or or.
     config.setValue("appdata_dir", str(user_data_dir))
@@ -124,10 +126,20 @@ class ApplicationTranslator:
     def __init__(self):
         self.app = QtCore.QCoreApplication.instance()
         self.translator = QtCore.QTranslator()
-        ini_path = get_app_data_path() / "settings.ini"
-        config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
-        config.setFallbacksEnabled(False)  # File only, not registry or or.
-        self.translator.load(str(config.value("language", "en_us")), str(get_main_dir() / "rsrc" / "i18n"))
+        
+        try:
+            # Try to use the settings manager if it's already initialized
+            from settings_manager import SettingsManager
+            settings = SettingsManager.get_instance()
+            language = settings.get_language()
+        except (ImportError, RuntimeError):
+            # Fall back to direct QSettings if the settings manager isn't available yet
+            ini_path = get_app_data_path() / "settings.ini"
+            config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
+            config.setFallbacksEnabled(False)  # File only, not registry or or.
+            language = config.get_language()
+            
+        self.translator.load(str(language), str(get_main_dir() / "rsrc" / "i18n"))
         self.app.installTranslator(self.translator)
 
     def translate(self, context, text):

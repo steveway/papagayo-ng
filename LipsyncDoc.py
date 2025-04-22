@@ -45,10 +45,10 @@ import utilities
 
 logger = logging.getLogger('LipsyncDoc')
 
-ini_path = utilities.get_app_data_path() / "settings.ini"
-config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
+from settings_manager import SettingsManager
+settings = SettingsManager.get_instance()
 
-if config.value("audio_output", "old") == "old":
+if settings.get_audio_output() == "old":
     import SoundPlayer as SoundPlayer
 else:
     import SoundPlayerSDF as SoundPlayer
@@ -163,9 +163,9 @@ class LanguageManager:
 class LipsyncDoc:
     def __init__(self, langman: LanguageManager, parent):
         self._dirty = False
-        ini_path = utilities.get_app_data_path() / "settings.ini"
-        self.settings = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
-        self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
+        from settings_manager import SettingsManager
+        settings = SettingsManager.get_instance()
+        self.settings = settings
         self.name = "Untitled"
         self.path = None
         self.fps = 24
@@ -425,15 +425,14 @@ class LipsyncDoc:
                 self.parent.main_window.waveform_view.set_document(self, force=True, clear_scene=True)
 
     def auto_recognize_phoneme(self, manual_invoke=False):
-        if str(self.settings.value("/VoiceRecognition/run_voice_recognition",
-                                   "true")).lower() == "true" or manual_invoke:
-            recognizer_type = self.settings.value("/VoiceRecognition/recognizer", "Allosaurus")
-            distribution_mode = self.settings.value("/VoiceRecognition/distribution_mode", "peaks")
+        if str(self.settings.get_voice_recognition()).lower() == "true" or manual_invoke:
+            recognizer_type = self.settings.get_recognizer()
+            distribution_mode = self.settings.get_distribution_mode()
             
             try:
                 # Create the appropriate recognizer using the factory
                 if recognizer_type.lower() == "onnx":
-                    model_path = self.settings.value("/VoiceRecognition/onnx_model", "default")
+                    model_path = self.settings.get_onnx_model()
                     model_dir = ensure_model_exists(model_path, model_type="phoneme")
                     logging.info(f"Using ONNX model: {model_dir}")
                     phoneme_recognizer = RecognizerFactory.create_recognizer("onnx", phoneme_model_path=model_dir)

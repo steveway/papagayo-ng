@@ -26,12 +26,11 @@ if utilities.main_is_frozen():
 
 class AutoRecognize:
     def __init__(self, sound_path):
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
-        self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
+        from settings_manager import SettingsManager
+        self.settings = SettingsManager.get_instance()
         
         # Get the selected recognizer type from settings
-        self.recognizer_type = self.settings.value("/VoiceRecognition/recognizer", "Allosaurus").lower()
+        self.recognizer_type = self.settings.get_recognizer().lower()
         
         # Paths and temporary files
         self.temp_wave_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
@@ -79,8 +78,8 @@ class AutoRecognize:
             
             if self.recognizer_type == "allosaurus":
                 # For Allosaurus, we need to pass specific parameters
-                lang_id = self.settings.value("/VoiceRecognition/allo_lang_id", "eng")
-                emission = float(str(self.settings.value("/VoiceRecognition/allo_emission", 1.0)))
+                lang_id = self.settings.get_allo_lang_id()
+                emission = float(str(self.settings.get_allo_emission()))
                 recognizer.predict(five_second_sample_temp_file, lang_id=lang_id, emit=emission)
             else:
                 # For other recognizers, just call predict

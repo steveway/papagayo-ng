@@ -5,6 +5,7 @@ from pathlib import Path
 import path_utils
 import utilities
 from PronunciationDialogQT import show_pronunciation_dialog
+from settings_manager import SettingsManager
 
 class LipSyncObject(NodeMixin):
     '''
@@ -14,9 +15,7 @@ class LipSyncObject(NodeMixin):
     def __init__(self, parent=None, children=None, object_type="voice", text="", start_frame=0, end_frame=0, name="",
                  tags=None, num_children=0, sound_duration=0, fps=24):
         self.parent = parent
-        ini_path = utilities.get_app_data_path() / "settings.ini"
-        self.config = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
-        self.config.setFallbacksEnabled(False)  # File only, not registry or or.
+        self.config = SettingsManager.get_instance()
         if children:
             self.children = children
         self.object_type = object_type
@@ -119,16 +118,16 @@ class LipSyncObject(NodeMixin):
                     self.last_returned_frame = descendant.text
                     return descendant.text
 
-        if str(self.config.value("rest_after_words", True)).lower() == "true":
+        if str(self.config.get_rest_after_words()).lower() == "true":
             if not self.frame_is_in_word(frame):
                 return "rest"
             else:
-                if str(self.config.value("rest_after_phonemes", True)).lower() == "true":
+                if str(self.config.get_rest_after_phonemes()).lower() == "true":
                     return "rest"
                 else:
                     return self.last_returned_frame
         else:
-            if str(self.config.value("rest_after_phonemes", True)).lower() == "true":
+            if str(self.config.get_rest_after_phonemes()).lower() == "true":
                 return "rest"
             else:
                 return self.last_returned_frame
@@ -253,20 +252,20 @@ class LipSyncObject(NodeMixin):
                     phoneme.text = phoneme_line[1]
 
     def save(self, out_file):
-        out_file.write("\t{}\n".format(self.name))
+        out_file.write("    {}\n".format(self.name))
         temp_text = self.text.replace('\n', '|')
-        out_file.write("\t{}\n".format(temp_text))
-        out_file.write("\t{:d}\n".format(len(self.children)))
+        out_file.write("    {}\n".format(temp_text))
+        out_file.write("    {:d}\n".format(len(self.children)))
         for phrase in self.children:
-            out_file.write("\t\t{}\n".format(phrase.text))
-            out_file.write("\t\t{:d}\n".format(phrase.start_frame))
-            out_file.write("\t\t{:d}\n".format(phrase.end_frame))
-            out_file.write("\t\t{:d}\n".format(len(phrase.children)))
+            out_file.write("        {}\n".format(phrase.text))
+            out_file.write("        {:d}\n".format(phrase.start_frame))
+            out_file.write("        {:d}\n".format(phrase.end_frame))
+            out_file.write("        {:d}\n".format(len(phrase.children)))
             for word in phrase.children:
                 out_file.write(
-                    "\t\t\t{} {:d} {:d} {:d}\n".format(word.text, word.start_frame, word.end_frame, len(word.children)))
+                    "            {} {:d} {:d} {:d}\n".format(word.text, word.start_frame, word.end_frame, len(word.children)))
                 for phoneme in word.children:
-                    out_file.write("\t\t\t\t{:d} {}\n".format(phoneme.start_frame, phoneme.text))
+                    out_file.write("                {:d} {}\n".format(phoneme.start_frame, phoneme.text))
 
     def run_breakdown(self, frame_duration, parent_window, language, languagemanager, phonemeset):
         if self.object_type == "voice":
@@ -415,7 +414,7 @@ class LipSyncObject(NodeMixin):
                     # export an extra "rest" phoneme at the end of a pause between words or phrases
                     out_file.write("{:d} {}\n".format(phoneme.start_frame, phoneme.text))
             if use_rest_frame_settings:
-                if str(self.config.value("rest_after_words", True)).lower() == "true":
+                if str(self.config.get_rest_after_words()).lower() == "true":
                     if last_phoneme.parent != phoneme.parent:
                         if (last_phoneme.start_frame + 1) < phoneme.start_frame:
                             out_file.write("{:d} {}\n".format((last_phoneme.start_frame + 2), "rest"))
@@ -425,7 +424,7 @@ class LipSyncObject(NodeMixin):
         out_file.close()
 
     def export_images(self, path, currentmouth, use_rest_frame_settings=False):
-        if not self.config.value("MouthDir"):
+        if not self.config.get_mouth_dir():
             logging.info("Use normal procedure.\n")
             phonemedict = {}
             mouth_full_dir = Path(path_utils.get_resource_path("rsrc", "mouths")) / currentmouth
@@ -440,14 +439,14 @@ class LipSyncObject(NodeMixin):
                     logging.info("Phoneme \'{0}\' does not exist in chosen directory.".format(phoneme.text))
 
         else:
-            logging.info("Use this dir: {}\n".format(self.config.value("MouthDir")))
+            logging.info("Use this dir: {}\n".format(self.config.get_mouth_dir()))
             phonemedict = {}
-            for files in Path(self.config.value("MouthDir")).iterdir():
+            for files in Path(self.config.get_mouth_dir()).iterdir():
                 phonemedict[files.stem] = files.suffix
             for phoneme in self.leaves:
                 try:
                     shutil.copy(
-                        "{}/{}{}".format(self.config.value("MouthDir"), phoneme.text, phonemedict[phoneme.text]),
+                        "{}/{}{}".format(self.config.get_mouth_dir(), phoneme.text, phonemedict[phoneme.text]),
                         "{}{}{}{}".format(path, str(phoneme.start_frame).rjust(6, "0"), phoneme.text,
                                           phonemedict[phoneme.text]))
                 except KeyError:
@@ -470,6 +469,7 @@ class LipSyncObject(NodeMixin):
                     pronunciation = languagemanager.raw_dictionary[text]
                 first = True
                 position = -1
+                last_phoneme = None
                 for phoneme in word.children:
                     if first:
                         first = False

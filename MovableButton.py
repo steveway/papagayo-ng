@@ -6,13 +6,12 @@ import re
 from PySide6 import QtCore, QtGui
 import PySide6.QtWidgets as QtWidgets
 import utilities
+from settings_manager import SettingsManager
 
 class MovableButton(QtWidgets.QPushButton):
     def __init__(self, lipsync_object, wfv_parent, phoneme_offset=None):
         super(MovableButton, self).__init__(lipsync_object.text, None)
-        ini_path = utilities.get_app_data_path() / "settings.ini"
-        self.settings = QtCore.QSettings(str(ini_path), QtCore.QSettings.Format.IniFormat)
-        self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
+        self.settings = SettingsManager.get_instance()
         self.title = lipsync_object.text
         self.node = lipsync_object
         self.phoneme_offset = phoneme_offset
@@ -59,30 +58,30 @@ class MovableButton(QtWidgets.QPushButton):
             if self.is_phrase():
 
                 self.style = "QPushButton {{color: #000000; background-color:{0};".format(
-                    QtGui.QColor(self.settings.value("/Graphics/{}".format("phrase_fill_color"),
+                    QtGui.QColor(self.settings.get("/Graphics/{}".format("phrase_fill_color"),
                                                      utilities.original_colors["phrase_fill_color"])).name())
                 self.style += "border-color: {0};".format(
-                    QtGui.QColor(self.settings.value("/Graphics/{}".format("phrase_line_color"),
+                    QtGui.QColor(self.settings.get("/Graphics/{}".format("phrase_line_color"),
                                                      utilities.original_colors["phrase_line_color"])).name())
                 self.style += "border-style: solid solid solid solid; border-width: 1px {0}px}};".format(
                     str(self.get_handle_width()))
             elif self.is_word():
                 self.style = "QPushButton {{color: #000000; background-color:{0};".format(
-                    QtGui.QColor(self.settings.value("/Graphics/{}".format("word_fill_color"),
+                    QtGui.QColor(self.settings.get("/Graphics/{}".format("word_fill_color"),
                                                      utilities.original_colors["word_fill_color"])).name())
                 self.style += "border-color: {0};".format(
-                    QtGui.QColor(self.settings.value("/Graphics/{}".format("word_line_color"),
+                    QtGui.QColor(self.settings.get("/Graphics/{}".format("word_line_color"),
                                                      utilities.original_colors["word_line_color"])).name())
                 self.style += "border-style: solid solid solid solid; border-width: 1px {0}px}};".format(
                     str(self.get_handle_width()))
             elif self.is_phoneme():
                 self.style = "QPushButton {{color: #000000; background-color:{0};".format(
                     QtGui.QColor(
-                        self.settings.value("/Graphics/{}".format("phoneme_fill_color"),
+                        self.settings.get("/Graphics/{}".format("phoneme_fill_color"),
                                             utilities.original_colors["phoneme_fill_color"])).name())
                 self.style += "border:1px solid {0};}};".format(
                     QtGui.QColor(
-                        self.settings.value("/Graphics/{}".format("phoneme_line_color"),
+                        self.settings.get("/Graphics/{}".format("phoneme_line_color"),
                                             utilities.original_colors["phoneme_line_color"])).name())
             self.setStyleSheet(self.style)
 

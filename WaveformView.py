@@ -33,9 +33,8 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
         self.translator = utilities.ApplicationTranslator()
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.Format.IniFormat)
-        self.settings.setFallbacksEnabled(False)  # File only, not registry or or.
+        from settings_manager import SettingsManager
+        self.settings = SettingsManager.get_instance()
         # Other initialization
         self.main_window = None
         for widget in QtWidgets.QApplication.instance().topLevelWidgets():
@@ -50,7 +49,7 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.default_samples_per_frame = default_samples_per_frame
         self.sample_width = self.default_sample_width
         self.samples_per_frame = self.default_samples_per_frame
-        self.samples_per_sec = int(str(self.settings.value("LastFPS", 24))) * self.samples_per_frame
+        self.samples_per_sec = int(str(self.settings.get_fps())) * self.samples_per_frame
         self.frame_width = self.sample_width * self.samples_per_frame
         self.phrase_bottom = 16
         self.word_bottom = 32
@@ -252,12 +251,12 @@ class WaveformView(QtWidgets.QGraphicsView):
         if self.temp_play_marker not in self.scene().items():
             self.temp_play_marker = self.scene().addRect(0, 1, self.frame_width + 1, self.height(),
                                                          QtGui.QPen(QtGui.QColor(
-                                                             self.settings.value(
+                                                             self.settings.get(
                                                                  "/Graphics/{}".format("playback_line_color"),
                                                                  utilities.original_colors[
                                                                      "playback_line_color"]))),
                                                          QtGui.QBrush(QtGui.QColor(
-                                                             self.settings.value(
+                                                             self.settings.get(
                                                                  "/Graphics/{}".format("playback_fill_color"),
                                                                  utilities.original_colors[
                                                                      "playback_fill_color"])), QtCore.Qt.BrushStyle.SolidPattern))
@@ -271,14 +270,14 @@ class WaveformView(QtWidgets.QGraphicsView):
 
     def drawBackground(self, painter, rect):
         background_brush = QtGui.QBrush(
-            QtGui.QColor(self.settings.value("/Graphics/{}".format("bg_fill_color"),
+            QtGui.QColor(self.settings.get("/Graphics/{}".format("bg_fill_color"),
                                              utilities.original_colors["bg_fill_color"])),
             QtCore.Qt.BrushStyle.SolidPattern)
         painter.fillRect(rect, background_brush)
         if self.doc is not None:
             pen = QtGui.QPen(
-                QtGui.QColor(self.settings.value("/Graphics/{}".format("frame_color"),
-                                                 utilities.original_colors["frame_color"])))
+                QtGui.QColor(self.settings.get("/Graphics/{}".format("frame_color"),
+                                             utilities.original_colors["frame_color"])))
             # pen.setWidth(5)
             painter.setPen(pen)
             painter.setFont(font)
@@ -376,10 +375,10 @@ class WaveformView(QtWidgets.QGraphicsView):
             self.waveform_polygon.setPolygon(temp_polygon)
         else:
             self.waveform_polygon = self.scene().addPolygon(temp_polygon, QtGui.QColor(
-                self.settings.value("/Graphics/{}".format("wave_line_color"),
+                self.settings.get("/Graphics/{}".format("wave_line_color"),
                                     utilities.original_colors["wave_line_color"])),
                                                             QtGui.QColor(
-                                                                self.settings.value(
+                                                                self.settings.get(
                                                                     "/Graphics/{}".format("wave_fill_color"),
                                                                     utilities.original_colors["wave_fill_color"])))
         self.waveform_polygon.setZValue(1)
@@ -564,12 +563,12 @@ class WaveformView(QtWidgets.QGraphicsView):
                 if self.temp_play_marker not in self.scene().items():
                     self.temp_play_marker = self.scene().addRect(0, 1, self.frame_width + 1, self.height(),
                                                                  QtGui.QPen(QtGui.QColor(
-                                                                     self.settings.value(
+                                                                     self.settings.get(
                                                                          "/Graphics/{}".format("playback_line_color"),
                                                                          utilities.original_colors[
                                                                              "playback_line_color"]))),
                                                                  QtGui.QBrush(QtGui.QColor(
-                                                                     self.settings.value(
+                                                                     self.settings.get(
                                                                          "/Graphics/{}".format("playback_fill_color"),
                                                                          utilities.original_colors[
                                                                              "playback_fill_color"])),

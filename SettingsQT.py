@@ -33,6 +33,7 @@ from model_manager import CustomTQDM
 
 import path_utils
 import utilities
+from settings_manager import SettingsManager
 
 
 class MySignal(QObject):
@@ -97,8 +98,7 @@ class SettingsWindow:
         self.status_bar_progress = status_bar_progress
         self.ui_path = path_utils.get_resource_path("rsrc", "settings.ui")
         self.main_window = self.load_ui_widget(self.ui_path)
-        ini_path = os.path.join(utilities.get_app_data_path(), "settings.ini")
-        self.settings = QtCore.QSettings(ini_path, QtCore.QSettings.IniFormat)
+        self.settings_manager = SettingsManager.get_instance()
 
         try:
             self.model_manager = model_manager.ModelHandler()
@@ -150,13 +150,12 @@ class SettingsWindow:
             self.main_window.settings_options.setCurrentIndex(2)
 
     def delete_settings(self, event=None):
-        self.settings.clear()
+        self.settings_manager.clear_settings()
 
     def select_qss_path(self):
         qss_file_name, _ = QtWidgets.QFileDialog.getOpenFileName(self.main_window,
                                                                  "Open QSS StyleSheet",
-                                                                 self.settings.value("/Graphics/qss_path",
-                                                                                     utilities.get_app_data_path()),
+                                                                 self.settings_manager.get_qss_file_path(),
                                                                  "QSS files (*.qss)")
         self.main_window.qss_path.setText(qss_file_name)
 
@@ -204,51 +203,47 @@ class SettingsWindow:
             shutil.rmtree(allosaurus_model_path_new)
 
     def load_settings_to_gui(self):
-        self.main_window.fps_value.setValue(int(self.settings.value("LastFPS", 24)))
-        self.main_window.lang_id_value.setText(self.settings.value("/VoiceRecognition/allo_lang_id", "eng"))
-        self.main_window.voice_emission_value.setValue(
-            float(self.settings.value("/VoiceRecognition/allo_emission", 1.0)))
-        if str(self.settings.value("/VoiceRecognition/run_voice_recognition", "true")).lower() == "true":
-            self.main_window.run_voice_recognition.setChecked(True)
-        else:
-            self.main_window.run_voice_recognition.setChecked(False)
+        # Use the settings manager to get values with proper type conversion
+        self.main_window.fps_value.setValue(self.settings_manager.get_fps())
+        self.main_window.lang_id_value.setText(self.settings_manager.get_allo_lang_id())
+        self.main_window.voice_emission_value.setValue(self.settings_manager.get_allo_emission())
+        self.main_window.run_voice_recognition.setChecked(self.settings_manager.get_run_voice_recognition())
         self.main_window.app_data_path.setText(utilities.get_app_data_path().as_posix())
-        self.main_window.model_name.setText(self.settings.value("/VoiceRecognition/allosaurus_model", "latest"))
+        self.main_window.model_name.setText(self.settings_manager.get_allosaurus_model())
         self.main_window.app_data_path.home(True)
+        
         list_of_recognizers = ["Allosaurus", "Rhubarb", "ONNX"]
         self.main_window.selected_recognizer.addItems(list_of_recognizers)
+        
         language_list = []
         for f in os.listdir(os.path.join(utilities.get_main_dir(), "rsrc", "i18n")):
             language_list.append(os.path.basename(f).split(".")[0])
         self.main_window.ui_language.addItems(language_list)
-        lang_index = self.main_window.ui_language.findText(self.settings.value("language", "en_us"))
+        
+        lang_index = self.main_window.ui_language.findText(self.settings_manager.get_language())
         self.main_window.ui_language.setCurrentIndex(lang_index)
-        if str(self.settings.value("rest_after_words", "true")).lower() == "true":
-            self.main_window.rest_after_words.setChecked(True)
-        else:
-            self.main_window.rest_after_words.setChecked(False)
-        if str(self.settings.value("rest_after_phonemes", "true")).lower() == "true":
-            self.main_window.rest_after_phonemes.setChecked(True)
-        else:
-            self.main_window.rest_after_phonemes.setChecked(False)
-        recog_index = self.main_window.selected_recognizer.findText(
-            self.settings.value("/VoiceRecognition/recognizer", "Allosaurus"))
+        
+        self.main_window.rest_after_words.setChecked(self.settings_manager.get_rest_after_words())
+        self.main_window.rest_after_phonemes.setChecked(self.settings_manager.get_rest_after_phonemes())
+        
+        recog_index = self.main_window.selected_recognizer.findText(self.settings_manager.get_recognizer())
         self.main_window.selected_recognizer.setCurrentIndex(recog_index)
+        
         self.main_window.distribution_mode.setCurrentText(
-            self.settings.value("/VoiceRecognition/distribution_mode", "peaks").capitalize())
+            self.settings_manager.get_distribution_mode().capitalize())
+        
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
             if "Color" in color_button.text():
-                new_color = QtGui.QColor(
-                    self.settings.value("/Graphics/{}".format(color_button.objectName()),
-                                        utilities.original_colors[color_button.objectName()]))
+                new_color = QtGui.QColor(self.settings_manager.get_color(color_button.objectName()))
                 new_text_color = "#ffffff" if new_color.lightnessF() < 0.5 else "#000000"
                 style = "background-color: {};\n color: {};\n border: transparent;".format(new_color.name(),
                                                                                            new_text_color)
                 color_button.setStyleSheet(style)
+        
         onnx_model_list = self.model_manager.get_model_list("phoneme")
         self.main_window.available_onnx_models.addItems(onnx_model_list)
-        self.main_window.available_onnx_models.setCurrentText(self.settings.value("/VoiceRecognition/onnx_model"))
-        self.main_window.qss_path.setText(self.settings.value("qss_file_path", ""))
+        self.main_window.available_onnx_models.setCurrentText(self.settings_manager.get_onnx_model())
+        self.main_window.qss_path.setText(self.settings_manager.get_qss_file_path())
 
     def init_ui(self):
         self.translator = utilities.ApplicationTranslator()
@@ -278,36 +273,34 @@ class SettingsWindow:
         # self.main_window.about_ok_button.clicked.connect(self.close)
 
     def on_reset_colors(self):
-        for color_name, color_value in utilities.original_colors.items():
-            self.settings.setValue("/Graphics/{}".format(color_name), color_value.name())
+        self.settings_manager.reset_colors()
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
             if "Color" in color_button.text():
-                new_color = QtGui.QColor(self.settings.value(color_button.objectName(),
-                                                             utilities.original_colors[color_button.objectName()]))
+                new_color = QtGui.QColor(self.settings_manager.get_color(color_button.objectName()))
                 new_text_color = "#ffffff" if new_color.lightnessF() < 0.5 else "#000000"
                 style = "background-color: {};\n color: {};\n border: transparent;".format(new_color.name(),
                                                                                            new_text_color)
                 color_button.setStyleSheet(style)
 
     def accepted(self, event=None):
-        self.settings.setValue("LastFPS", self.main_window.fps_value.value())
-        self.settings.setValue("/VoiceRecognition/allo_lang_id", self.main_window.lang_id_value.text())
-        self.settings.setValue("/VoiceRecognition/allo_emission", self.main_window.voice_emission_value.value())
-        self.settings.setValue("/VoiceRecognition/run_voice_recognition",
-                               bool(self.main_window.run_voice_recognition.isChecked()))
-        self.settings.setValue("/VoiceRecognition/distribution_mode", 
-                               self.main_window.distribution_mode.currentText().lower())
-        self.settings.setValue("qss_file_path", str(self.main_window.qss_path.text()))
-        self.settings.setValue("/VoiceRecognition/recognizer", self.main_window.selected_recognizer.currentText())
-        self.settings.setValue("rest_after_words", bool(self.main_window.rest_after_words.isChecked()))
-        self.settings.setValue("rest_after_phonemes", bool(self.main_window.rest_after_phonemes.isChecked()))
-        self.settings.setValue("language", self.main_window.ui_language.currentText())
-        self.settings.setValue("/VoiceRecognition/allosaurus_model", self.main_window.model_name.text())
-        self.settings.setValue("/VoiceRecognition/onnx_model", self.main_window.available_onnx_models.currentText())
+        # Save all settings using the settings manager
+        self.settings_manager.set_fps(self.main_window.fps_value.value())
+        self.settings_manager.set_allo_lang_id(self.main_window.lang_id_value.text())
+        self.settings_manager.set_allo_emission(self.main_window.voice_emission_value.value())
+        self.settings_manager.set_run_voice_recognition(self.main_window.run_voice_recognition.isChecked())
+        self.settings_manager.set_distribution_mode(self.main_window.distribution_mode.currentText().lower())
+        self.settings_manager.set_qss_file_path(self.main_window.qss_path.text())
+        self.settings_manager.set_recognizer(self.main_window.selected_recognizer.currentText())
+        self.settings_manager.set_rest_after_words(self.main_window.rest_after_words.isChecked())
+        self.settings_manager.set_rest_after_phonemes(self.main_window.rest_after_phonemes.isChecked())
+        self.settings_manager.set_language(self.main_window.ui_language.currentText())
+        self.settings_manager.set_allosaurus_model(self.main_window.model_name.text())
+        self.settings_manager.set_onnx_model(self.main_window.available_onnx_models.currentText())
+        
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
             if "Color" in color_button.text():
-                self.settings.setValue("/Graphics/{}".format(color_button.objectName()),
-                                       color_button.palette().button().color().name())
+                self.settings_manager.set_color(color_button.objectName(), 
+                                               color_button.palette().button().color().name())
 
     def close(self):
         if self.download_thread and self.download_thread.isRunning():

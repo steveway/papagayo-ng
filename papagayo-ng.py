@@ -93,86 +93,93 @@ def parse_cli():
         log_level_name = getattr(args, ARG_KEY_LOG_LEVEL, None)
         logging.root.setLevel(logging._nameToLevel[log_level_name])
     except:
-        logger.warn(f"unable to set log level to {log_level_name}; leave at {logging._nameToLevel[logging.root.getEffectiveLevel()]}")
+        logger.warning(f"unable to set log level to {log_level_name}; leave at {logging._nameToLevel[logging.root.getEffectiveLevel()]}")
 
     list_of_input_files = []
     langman = LipsyncFrameQT.LipsyncDoc.LanguageManager()
     langman.init_languages()
+    
+    # Use the settings manager instead of direct QSettings
+    from settings_manager import SettingsManager
+    settings = SettingsManager.get_instance()
+    
+    if not args.use_cli:
+        settings.set_audio_output("new")
+    else:
+        settings.set_audio_output("old")
+        if args.allosaurus:
+            settings.set_recognizer("Allosaurus")
+            settings.set_run_voice_recognition(True)
+        if args.rhubarb:
+            settings.set_recognizer("Rhubarb")
+            settings.set_run_voice_recognition(True)
+        if not args.allosaurus and not args.rhubarb:
+            settings.set_run_voice_recognition(False)
+        if args.fps:
+            settings.set_fps(args.fps)
+        if args.mouth_image_dir:
+            settings.set_mouth_dir(args.mouth_image_dir)
+            
     ini_path = Path(LipsyncFrameQT.utilities.get_app_data_path()) / "settings.ini"
     config = LipsyncFrameQT.QtCore.QSettings(str(ini_path), LipsyncFrameQT.QtCore.QSettings.Format.IniFormat)
-    if not args.use_cli:
-        config.setValue("audio_output", "new")
-    else:
-        config.setValue("audio_output", "old")
-        if args.allosaurus:
-            config.setValue("/VoiceRecognition/recognizer", "Allosaurus")
-            config.setValue("/VoiceRecognition/run_voice_recognition", True)
-        if args.rhubarb:
-            config.setValue("/VoiceRecognition/recognizer", "Rhubarb")
-            config.setValue("/VoiceRecognition/run_voice_recognition", True)
-        if not args.allosaurus and not args.rhubarb:
-            config.setValue("/VoiceRecognition/run_voice_recognition", False)
-        if args.fps:
-            config.setValue("LastFPS", args.fps)
-        if args.mouth_image_dir:
-            config.setValue("MouthDir", args.mouth_image_dir)
-        if args.input_file_path:
-            parent = ParentClass()
-            if os.path.isdir(args.input_file_path):
-                for (dirpath, dirnames, filenames) in os.walk(args.input_file_path):
-                    list_of_input_files.extend(os.path.join(dirpath, filename) if filename.endswith(
-                        LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.audio_extension_list) else "" for
-                                               filename in
-                                               filenames)
-                    break
-            else:
-                if args.input_file_path.endswith(
-                        LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.audio_extension_list):
-                    list_of_input_files.append(args.input_file_path)
-            list_of_input_files = filter(None, list_of_input_files)
-            logging.info("Input Files:")
-            list_of_doc_objects = []
-            for i in list_of_input_files:
-                logging.info(i)
-                new_doc = LipsyncFrameQT.open_file_no_gui(i, parent)
-                list_of_doc_objects.append(new_doc)
+    
+    if args.input_file_path:
+        parent = ParentClass()
+        if os.path.isdir(args.input_file_path):
+            for (dirpath, dirnames, filenames) in os.walk(args.input_file_path):
+                list_of_input_files.extend(os.path.join(dirpath, filename) if filename.endswith(
+                    LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.audio_extension_list) else "" for
+                                           filename in
+                                           filenames)
+                break
+        else:
+            if args.input_file_path.endswith(
+                    LipsyncFrameQT.lipsync_extension_list + LipsyncFrameQT.audio_extension_list):
+                list_of_input_files.append(args.input_file_path)
+        list_of_input_files = filter(None, list_of_input_files)
+        logging.info("Input Files:")
+        list_of_doc_objects = []
+        for i in list_of_input_files:
+            logging.info(i)
+            new_doc = LipsyncFrameQT.open_file_no_gui(i, parent)
+            list_of_doc_objects.append(new_doc)
 
-            for i in list_of_doc_objects:
-                if args.output_type.upper() == "MOHO":
-                    for voice in i.project_node.children:
-                        if args.output_file:
-                            if os.path.isdir(args.output_file):
-                                voice_file_path = os.path.join(args.output_file, "{}.dat".format(voice.name))
-                                voice.export(voice_file_path)
-                            else:
-                                voice.export(args.output_file)
-                elif args.output_type.upper() == "ALELO":
-                    for voice in i.project_node.children:
-                        if args.output_file:
-                            if os.path.isdir(args.output_file):
-                                voice_file_path = os.path.join(args.output_file, "{}.txt".format(voice.name))
-                                voice.export_alelo(voice_file_path, args.language, langman)
-                            else:
-                                voice.export_alelo(args.output_file, args.language, langman)
-                elif args.output_type.upper() == "JSON":
-                    for voice in i.project_node.children:
-                        if args.output_file:
-                            if os.path.isdir(args.output_file):
-                                voice_file_path = os.path.join(args.output_file, "{}.json".format(voice.name))
-                                voice.export_json(voice_file_path, i.soundPath)
-                            else:
-                                voice.export_json(args.output_file, i.soundPath)
-                elif args.output_type.upper() == "IMAGES":
-                    for voice in i.project_node.children:
-                        if args.output_file:
-                            if os.path.isdir(args.output_file):
-                                voice.export_images(args.output_file, "")
-                elif args.output_type.upper() == "PGO":
+        for i in list_of_doc_objects:
+            if args.output_type.upper() == "MOHO":
+                for voice in i.project_node.children:
                     if args.output_file:
-                        i.save(args.output_file)
-                elif args.output_type.upper() == "PG2":
+                        if os.path.isdir(args.output_file):
+                            voice_file_path = os.path.join(args.output_file, "{}.dat".format(voice.name))
+                            voice.export(voice_file_path)
+                        else:
+                            voice.export(args.output_file)
+            elif args.output_type.upper() == "ALELO":
+                for voice in i.project_node.children:
                     if args.output_file:
-                        i.save2(args.output_file)
+                        if os.path.isdir(args.output_file):
+                            voice_file_path = os.path.join(args.output_file, "{}.txt".format(voice.name))
+                            voice.export_alelo(voice_file_path, args.language, langman)
+                        else:
+                            voice.export_alelo(args.output_file, args.language, langman)
+            elif args.output_type.upper() == "JSON":
+                for voice in i.project_node.children:
+                    if args.output_file:
+                        if os.path.isdir(args.output_file):
+                            voice_file_path = os.path.join(args.output_file, "{}.json".format(voice.name))
+                            voice.export_json(voice_file_path, i.soundPath)
+                        else:
+                            voice.export_json(args.output_file, i.soundPath)
+            elif args.output_type.upper() == "IMAGES":
+                for voice in i.project_node.children:
+                    if args.output_file:
+                        if os.path.isdir(args.output_file):
+                            voice.export_images(args.output_file, "")
+            elif args.output_type.upper() == "PGO":
+                if args.output_file:
+                    i.save(args.output_file)
+            elif args.output_type.upper() == "PG2":
+                if args.output_file:
+                    i.save2(args.output_file)
 
     return args.use_cli
 
