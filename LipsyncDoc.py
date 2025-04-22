@@ -23,10 +23,10 @@ import fnmatch
 from pathlib import Path
 from scipy.signal import find_peaks
 
-import recognizer
+# Import the recognizer factory instead of directly importing recognizer
+from recognizer_factory import RecognizerFactory
 import os
 import logging
-
 from Rhubarb import Rhubarb, RhubarbTimeoutException
 from ai_output_process import get_best_fitting_output_from_list
 from model_downloader import ensure_model_exists
@@ -430,106 +430,214 @@ class LipsyncDoc:
             recognizer_type = self.settings.value("/VoiceRecognition/recognizer", "Allosaurus")
             distribution_mode = self.settings.value("/VoiceRecognition/distribution_mode", "peaks")
             
-            if recognizer_type == "ONNX":
-                try:
+            try:
+                # Create the appropriate recognizer using the factory
+                if recognizer_type.lower() == "onnx":
                     model_path = self.settings.value("/VoiceRecognition/onnx_model", "default")
                     model_dir = ensure_model_exists(model_path, model_type="phoneme")
-                    print(f"Using ONNX model: {model_dir}")
-                    phoneme_recognizer = recognizer.ComboRecognizer(model_dir)
-                except Exception as e:
-                    print(f"Failed to use ONNX model: {str(e)}")
-                    phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
-                    model_dir = ensure_model_exists(model_path, model_type="phoneme")
-                    phoneme_recognizer.change_model(model_dir, "phoneme")
-            else:
-                phoneme_recognizer = recognizer.ComboRecognizer.get_instance()
-            
-            ipa_convert = json.load(open("ipa_cmu.json", encoding="utf8"))
-            phonemes = phoneme_recognizer.predict(self.soundPath, "phoneme")
-            phonemes = get_best_fitting_output_from_list(phonemes, ipa_convert)
-            print(f"Auto-Recognized Phonemes: {phonemes}")
-            print(f"Number of Phonemes: {len(phonemes)}")
-            if distribution_mode == "peaks":
-                peaks = find_peaks(self.sound.soundfile, distance=2048)
-                print(f"Auto-Recognized Peaks: {peaks}")
-                print(f"Number of Peaks: {len(peaks[0])}")
-                peak_divisor = len(self.sound.soundfile) / (self.soundDuration)
-                print(f"Auto-Recognized Peak Divisor: {peak_divisor}")
-                fitted_peaks = peaks[0] / peak_divisor
-                fitted_peaks = fitted_peaks.round().astype(int)
-                fitted_peaks = list(fitted_peaks)
-                fitted_peaks.append(int(round(self.soundDuration)))
-                fitted_peaks.append(0)
-                fitted_peaks = list(set(fitted_peaks))
-                fitted_peaks.sort()
-                print(f"Auto-Recognized Fitted Peaks: {fitted_peaks}")
-                print(f"Auto-Recognized Fitted Peaks Number: {len(fitted_peaks)}")
-
-                number_of_words = int(len(fitted_peaks) / 2) - 1
-                print(f"Auto-Recognized Number of Words: {number_of_words}")
-                available_frames = 0
-                for i in range(number_of_words):
-                    available_frames += fitted_peaks[i + 1] - fitted_peaks[i]
-                print(f"Auto-Recognized Available Frames: {available_frames}")
-                list_of_words = []
-                k = 0
-                while k < len(fitted_peaks) - 1:
-                    peak_left = fitted_peaks[k]
-                    peak_right = fitted_peaks[k + 1]
-                    list_of_words.append((peak_left, peak_right))
-                    k += 2
-                print(f"Auto-Recognized List of Words: {list_of_words}")
-                print(f"Auto-Recognized List of Words Number: {len(list_of_words)}")
-                phonemes_per_word = math.ceil(len(phonemes) / len(list_of_words))
-                print(f"Auto-Recognized Phonemes Per Word: {phonemes_per_word}")
-            else:
-                list_of_words = [(0, self.soundDuration)]  # Single "word" spanning the whole timeline
-                phonemes_per_word = len(phonemes)
-                print(f"Even distribution mode - all phonemes spread across timeline")
-            
-            phrase = LipSyncObject(object_type="phrase", parent=self.current_voice)
-            phrase.text = f'Auto detection {recognizer_type}'
-            phrase.start_frame = 0
-            phrase.end_frame = self.soundDuration
-            self.parent.phonemeset.selected_set = self.parent.phonemeset.load("CMU_39")
-
-            phoneme_pointer = 0
-            remaining_phonemes = len(phonemes)
-            for i, word in enumerate(list_of_words):
-                peak_left = word[0]
-                peak_right = word[1]
-
-                # Calculate phonemes for this word considering remaining words and phonemes
-                if i == len(list_of_words) - 1:
-                    # Last word - use all remaining phonemes
-                    amount_of_phonemes = remaining_phonemes
+                    logging.info(f"Using ONNX model: {model_dir}")
+                    phoneme_recognizer = RecognizerFactory.create_recognizer("onnx", phoneme_model_path=model_dir)
                 else:
-                    # For other words, distribute remaining phonemes evenly among remaining words
-                    remaining_words = len(list_of_words) - i
-                    amount_of_phonemes = min(
-                        peak_right - peak_left,  # Don't use more frames than available
-                        max(1, remaining_phonemes // remaining_words)  # At least 1 phoneme per word
-                    )
+                    # For Allosaurus or Rhubarb
+                    phoneme_recognizer = RecognizerFactory.create_recognizer(recognizer_type.lower())
+                
+                # Process the audio file with the selected recognizer
+                if recognizer_type.lower() == "allosaurus":
+                    # For Allosaurus, we get a list of phoneme dictionaries with timing
+                    phoneme_results = phoneme_recognizer.predict(self.soundPath)
+                    
+                    # Extract phonemes and create time list
+                    phonemes = [p["phoneme"] for p in phoneme_results]
+                    time_list = []
+                    prev_start = 0
+                    for p in phoneme_results:
+                        time_list.append(p["start"] - prev_start)
+                        prev_start = p["start"]
+                    time_list.append(self.soundDuration - prev_start)
+                    
+                    # Find peaks for word boundaries
+                    if distribution_mode == "peaks":
+                        peaks = self.get_level_peaks(time_list)
+                        fitted_peaks = []
+                        for peak in peaks:
+                            if peak < len(time_list):
+                                frame = int(round(phoneme_results[peak]["start"] * self.fps))
+                                fitted_peaks.append(frame)
+                        fitted_peaks.append(int(round(self.soundDuration)))
+                        fitted_peaks = list(set(fitted_peaks))
+                        fitted_peaks.sort()
+                    else:
+                        fitted_peaks = [0, int(round(self.soundDuration))]
+                    
+                elif recognizer_type.lower() == "rhubarb":
+                    # For Rhubarb, we get a list of phoneme dictionaries with timing
+                    phoneme_results = phoneme_recognizer.predict(self.soundPath)
+                    
+                    # Extract phonemes
+                    phonemes = [p["phoneme"] for p in phoneme_results]
+                    
+                    # Find word boundaries based on timing
+                    if distribution_mode == "peaks":
+                        # Find potential word boundaries (silence or pauses)
+                        fitted_peaks = [0]  # Start with frame 0
+                        for i in range(1, len(phoneme_results)):
+                            # If there's a gap between phonemes or a rest phoneme, consider it a word boundary
+                            if (phoneme_results[i]["start"] - (phoneme_results[i-1]["start"] + phoneme_results[i-1]["duration"]) > 0.1 or
+                                phoneme_results[i-1]["phoneme"] == "rest"):
+                                frame = int(round(phoneme_results[i]["start"] * self.fps))
+                                fitted_peaks.append(frame)
+                        fitted_peaks.append(int(round(self.soundDuration)))
+                        fitted_peaks = list(set(fitted_peaks))
+                        fitted_peaks.sort()
+                    else:
+                        fitted_peaks = [0, int(round(self.soundDuration))]
+                    
+                else:  # ONNX
+                    try:
+                        # Load IPA to CMU conversion dictionary
+                        ipa_convert = json.load(open("ipa_cmu.json", encoding="utf8"))
+                        
+                        # Predict phonemes
+                        phoneme_results = phoneme_recognizer.predict(self.soundPath, "phoneme")
+                        
+                        # Extract just the phoneme text from the results
+                        if phoneme_results and isinstance(phoneme_results, list) and len(phoneme_results) > 0:
+                            # Check if we have dictionary objects with phoneme keys
+                            if isinstance(phoneme_results[0], dict) and "phoneme" in phoneme_results[0]:
+                                # Extract just the phoneme values
+                                phonemes = [p["phoneme"] for p in phoneme_results]
+                                
+                                # Convert phonemes if needed
+                                if any(not isinstance(p, str) or p.isupper() for p in phonemes):
+                                    # Already converted to CMU format
+                                    pass
+                                else:
+                                    # Convert from IPA to CMU format
+                                    phonemes = get_best_fitting_output_from_list(phonemes, ipa_convert)
+                            else:
+                                # If we just have a list of phonemes, use it directly
+                                phonemes = phoneme_results
+                                # Convert from IPA to CMU format if needed
+                                if not any(p.isupper() for p in phonemes if isinstance(p, str)):
+                                    phonemes = get_best_fitting_output_from_list(phonemes, ipa_convert)
+                            
+                            # Filter out None values
+                            phonemes = [p for p in phonemes if p is not None]
+                        else:
+                            logging.warning("ONNX model returned no phonemes")
+                            phonemes = []
+                        
+                        # Find peaks for word boundaries
+                        if distribution_mode == "peaks":
+                            peaks = find_peaks(self.sound.soundfile, distance=2048)
+                            peak_divisor = len(self.sound.soundfile) / (self.soundDuration)
+                            fitted_peaks = peaks[0] / peak_divisor
+                            fitted_peaks = fitted_peaks.round().astype(int)
+                            fitted_peaks = list(fitted_peaks)
+                            fitted_peaks.append(int(round(self.soundDuration)))
+                            fitted_peaks.append(0)
+                            fitted_peaks = list(set(fitted_peaks))
+                            fitted_peaks.sort()
+                        else:
+                            fitted_peaks = [0, int(round(self.soundDuration))]
+                    except Exception as e:
+                        logging.error(f"Error processing ONNX model output: {str(e)}")
+                        import traceback
+                        logging.error(traceback.format_exc())
+                        # Fall back to a simple distribution
+                        phonemes = []
+                        fitted_peaks = [0, int(round(self.soundDuration))]
+                
+                logging.info(f"Auto-Recognized Phonemes: {phonemes}")
+                logging.info(f"Number of Phonemes: {len(phonemes)}")
+                logging.info(f"Auto-Recognized Fitted Peaks: {fitted_peaks}")
+                
+                # Create words from peaks
+                list_of_words = []
+                for i in range(len(fitted_peaks) - 1):
+                    peak_left = fitted_peaks[i]
+                    peak_right = fitted_peaks[i + 1]
+                    if peak_right > peak_left:  # Only add valid word ranges
+                        list_of_words.append((peak_left, peak_right))
+                
+                logging.info(f"Auto-Recognized List of Words: {list_of_words}")
+                
+                # Create phrase and distribute phonemes
+                phrase = LipSyncObject(object_type="phrase", parent=self.current_voice)
+                phrase.text = f'Auto detection {recognizer_type}'
+                phrase.start_frame = 0
+                phrase.end_frame = self.soundDuration
+                self.parent.phonemeset.selected_set = self.parent.phonemeset.load("CMU_39")
+                
+                phoneme_pointer = 0
+                remaining_phonemes = len(phonemes)
+                
+                for i, word in enumerate(list_of_words):
+                    peak_left = word[0]
+                    peak_right = word[1]
+                    
+                    # Calculate phonemes for this word considering remaining words and phonemes
+                    if i == len(list_of_words) - 1:
+                        # Last word - use all remaining phonemes
+                        amount_of_phonemes = remaining_phonemes
+                    else:
+                        # For other words, distribute remaining phonemes evenly among remaining words
+                        remaining_words = len(list_of_words) - i
+                        amount_of_phonemes = min(
+                            peak_right - peak_left,  # Don't use more frames than available
+                            max(1, remaining_phonemes // remaining_words)  # At least 1 phoneme per word
+                        )
+                    
+                    logging.info(f"Auto-Recognized Amount of Phonemes: {amount_of_phonemes}")
+                    used_phonemes = []
+                    for j in range(amount_of_phonemes):
+                        if phoneme_pointer < len(phonemes):
+                            logging.info(f"Phoneme Pointer Position: {phoneme_pointer}")
+                            used_phonemes.append(phonemes[phoneme_pointer])
+                            phoneme_pointer += 1
+                            remaining_phonemes -= 1
+                    
+                    word = LipSyncObject(object_type="word", parent=phrase)
+                    word.text = "|".join(phoneme.upper() for phoneme in used_phonemes)
+                    word.start_frame = peak_left
+                    word.end_frame = peak_right
+                    j = 0
+                    for phoneme in used_phonemes:
+                        pg_phoneme = LipSyncObject(object_type="phoneme", parent=word)
+                        pg_phoneme.start_frame = pg_phoneme.end_frame = peak_left + j
+                        pg_phoneme.text = phoneme.upper() if phoneme != "rest" else phoneme
+                        j += 1
+                
+            except Exception as e:
+                logging.error(f"Error in auto recognition: {str(e)}")
+                import traceback
+                logging.error(traceback.format_exc())
 
-                print(f"Auto-Recognized Amount of Phonemes: {amount_of_phonemes}")
-                used_phonemes = []
-                for j in range(amount_of_phonemes):
-                    if phoneme_pointer < len(phonemes):
-                        print(f"Phoneme Pointer Position: {phoneme_pointer}")
-                        used_phonemes.append(phonemes[phoneme_pointer])
-                        phoneme_pointer += 1
-                        remaining_phonemes -= 1
+    def get_level_peaks(self, v):
+        """Find peaks in the audio level data for visualization"""
+        peaks = [0]
 
-                word = LipSyncObject(object_type="word", parent=phrase)
-                word.text = "|".join(phoneme.upper() for phoneme in used_phonemes)
-                word.start_frame = peak_left
-                word.end_frame = peak_right
-                j = 0
-                for phoneme in used_phonemes:
-                    pg_phoneme = LipSyncObject(object_type="phoneme", parent=word)
-                    pg_phoneme.start_frame = pg_phoneme.end_frame = peak_left + j
-                    pg_phoneme.text = phoneme.upper() if phoneme != "rest" else phoneme
-                    j += 1
+        i = 1
+        while i < len(v) - 1:
+            pos_left = i
+            pos_right = i
+
+            while v[pos_left] == v[i] and pos_left > 0:
+                pos_left -= 1
+
+            while v[pos_right] == v[i] and pos_right < len(v) - 1:
+                pos_right += 1
+
+            # is_lower_peak = v[pos_left] > v[i] and v[i] < v[pos_right]
+            is_upper_peak = v[pos_left] < v[i] and v[i] > v[pos_right]
+
+            if is_upper_peak:
+                peaks.append(i)
+
+            i = pos_right
+
+        peaks.append(len(v) - 1)
+        return peaks
 
     def __str__(self):
         out_string = "LipSyncDoc:{}|Objects:{}|Sound:{}|".format(self.name, self.project_node, self.soundPath)

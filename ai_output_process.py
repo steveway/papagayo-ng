@@ -43,10 +43,19 @@ def get_best_fitting_output(text, dictionary):
 def get_best_fitting_output_from_list(input_list, dictionary):
     result = []
     for text in input_list:
-        if text == " ":
+        if text is None:
+            # Handle None values by using a default "rest" phoneme
             result.append("rest")
-        elif text == "h#":
+        elif text == " " or text == "h#":
             result.append("rest")
         else:
-            result.append(dictionary.get(text.strip(), text.strip().upper()))
+            try:
+                # Safely handle text processing
+                text_str = str(text).strip()
+                result.append(dictionary.get(text_str, text_str.upper()))
+            except (AttributeError, TypeError):
+                # If any error occurs, use a default value
+                import logging
+                logging.warning(f"Error processing phoneme: {text}")
+                result.append("rest")
     return result
