@@ -20,7 +20,6 @@ build:
   include:
     packages:
       - "appdirs"
-      - "resampy"
     plugins:
       - "pyside6"
     data_dirs:

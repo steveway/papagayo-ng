@@ -4,13 +4,15 @@ import os
 from pathlib import Path
 from queue import Queue
 import logging
+import json
+from ai_output_process import get_best_fitting_output_from_list
 
 os.environ['PHONEMIZER_ESPEAK_LIBRARY'] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
 
 import onnxruntime as ort
 import numpy as np
 import yaml
-import threading
+from allosaurus.app import read_recognizer
 import path_utils
 import time
 import soundfile as sf
@@ -136,7 +138,6 @@ class ComboRecognizer(BaseRecognizer):
                 
         except Exception as e:
             logging.error(f"Error initializing models: {str(e)}")
-            import traceback
             logging.error(traceback.format_exc())
             self.works = False
     
@@ -164,7 +165,6 @@ class ComboRecognizer(BaseRecognizer):
                 logging.error("No recognizer available")
         except Exception as e:
             logging.error(f"Error initializing fallbacks: {str(e)}")
-            import traceback
             logging.error(traceback.format_exc())
             self.current_recognizer = None
     
@@ -196,7 +196,6 @@ class ComboRecognizer(BaseRecognizer):
             
             # Load the model
             try:
-                import onnxruntime as ort
                 session_options = ort.SessionOptions()
                 session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
                 session_options.enable_cpu_mem_arena = False
@@ -221,12 +220,10 @@ class ComboRecognizer(BaseRecognizer):
                 return model
             except Exception as e:
                 logging.error(f"Failed to load ONNX model: {str(e)}")
-                import traceback
                 logging.error(traceback.format_exc())
                 return None
         except Exception as e:
             logging.error(f"Error loading model: {str(e)}")
-            import traceback
             logging.error(traceback.format_exc())
             return None
 
@@ -277,7 +274,6 @@ class ComboRecognizer(BaseRecognizer):
             logging.info(f"Using settings file: {yaml_file}")
             
             # Load the settings from the YAML file
-            import yaml
             with open(yaml_file, 'r') as f:
                 settings = yaml.safe_load(f)
             
@@ -368,7 +364,6 @@ class ComboRecognizer(BaseRecognizer):
             return settings
         except Exception as e:
             logging.error(f"Error loading settings: {str(e)}")
-            import traceback
             logging.error(traceback.format_exc())
             return None
     
@@ -442,12 +437,9 @@ class ComboRecognizer(BaseRecognizer):
             phonemes = self.decode_tokens(prediction.squeeze().tolist())
             
             # Convert IPA phonemes to CMU phonemes using the mapping
-            import json
-            import os
-            from ai_output_process import get_best_fitting_output_from_list
             
             # Load the IPA to CMU mapping
-            ipa_cmu_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ipa_cmu.json")
+            ipa_cmu_path = path_utils.get_file_inside_exe("ipa_cmu.json")
             with open(ipa_cmu_path, 'r', encoding='utf-8') as f:
                 ipa_cmu_dict = json.load(f)
             
@@ -518,8 +510,6 @@ class AllosaurusRecognizer(BaseRecognizer):
         self.recognizer = None
         
         try:
-            import allosaurus
-            from allosaurus.app import read_recognizer
             self.recognizer = read_recognizer()
             self.available = True
         except Exception as e:
@@ -580,10 +570,9 @@ class AllosaurusRecognizer(BaseRecognizer):
                                     phone = parts[2]
                                     
                                     # Convert IPA phoneme to CMU
-                                    from ai_output_process import get_best_fitting_output_from_list
                                     
                                     # Load the IPA to CMU mapping
-                                    ipa_cmu_path = path_utils.get_file_inside_exe("ipa_to_cmu.json")
+                                    ipa_cmu_path = path_utils.get_file_inside_exe("ipa_cmu.json")
                                     with open(ipa_cmu_path, 'r', encoding='utf-8') as f:
                                         ipa_cmu_dict = json.load(f)
                                     
@@ -602,12 +591,9 @@ class AllosaurusRecognizer(BaseRecognizer):
                             return result
                     elif isinstance(phonemes, list) and len(phonemes) > 0 and isinstance(phonemes[0], dict) and "start" in phonemes[0]:
                         # Convert IPA phonemes to CMU phonemes
-                        import json
-                        import os
-                        from ai_output_process import get_best_fitting_output_from_list
                         
                         # Load the IPA to CMU mapping
-                        ipa_cmu_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ipa_cmu.json")
+                        ipa_cmu_path = path_utils.get_file_inside_exe("ipa_cmu.json")
                         with open(ipa_cmu_path, 'r', encoding='utf-8') as f:
                             ipa_cmu_dict = json.load(f)
                         
@@ -642,12 +628,9 @@ class AllosaurusRecognizer(BaseRecognizer):
                 phonemes = phoneme_str.strip().split()
                 
                 # Convert IPA phonemes to CMU phonemes
-                import json
-                import os
-                from ai_output_process import get_best_fitting_output_from_list
                 
                 # Load the IPA to CMU mapping
-                ipa_cmu_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ipa_cmu.json")
+                ipa_cmu_path = path_utils.get_file_inside_exe("ipa_cmu.json")
                 with open(ipa_cmu_path, 'r', encoding='utf-8') as f:
                     ipa_cmu_dict = json.load(f)
                 
@@ -671,18 +654,15 @@ class AllosaurusRecognizer(BaseRecognizer):
                 return result
             except Exception as e:
                 logging.error(f"Error running Allosaurus: {str(e)}")
-                import traceback
                 logging.error(traceback.format_exc())
                 return []
         except Exception as e:
             logging.error(f"Error predicting phonemes with Allosaurus: {str(e)}")
-            import traceback
             logging.error(traceback.format_exc())
             return []
 
     def get_audio_duration(self, audio_file):
         try:
-            import soundfile as sf
             audio_data, sample_rate = sf.read(audio_file)
             return len(audio_data) / float(sample_rate)
         except Exception as e:
@@ -706,8 +686,6 @@ class RhubarbRecognizer(BaseRecognizer):
     
     def _find_rhubarb_binary(self):
         """Find the Rhubarb binary in the system"""
-        import platform
-        import os
         
         system = platform.system()
         if system == "Windows":
@@ -722,7 +700,6 @@ class RhubarbRecognizer(BaseRecognizer):
                     return os.path.abspath(os.path.join(root, "rhubarb"))
         
         # If not found, check if it's in the PATH
-        import shutil
         rhubarb_in_path = shutil.which("rhubarb")
         if rhubarb_in_path:
             return rhubarb_in_path
@@ -740,9 +717,6 @@ class RhubarbRecognizer(BaseRecognizer):
             return []
         
         try:
-            import subprocess
-            import json
-            import tempfile
             
             # Create a temporary file for the JSON output
             with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_file:
@@ -784,14 +758,12 @@ class RhubarbRecognizer(BaseRecognizer):
                 })
             
             # Clean up the temporary file
-            import os
             if os.path.exists(temp_json_path):
                 os.unlink(temp_json_path)
             
             return phoneme_dicts
         except Exception as e:
             logging.error(f"Rhubarb prediction error: {str(e)}")
-            import traceback
             logging.error(traceback.format_exc())
             return []
 
