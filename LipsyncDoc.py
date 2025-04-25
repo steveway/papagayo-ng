@@ -21,6 +21,7 @@ import math
 import json
 import fnmatch
 from pathlib import Path
+import path_utils
 from scipy.signal import find_peaks
 
 # Import the recognizer factory instead of directly importing recognizer
@@ -458,10 +459,19 @@ class LipsyncDoc:
                     if distribution_mode == "peaks":
                         peaks = self.get_level_peaks(time_list)
                         fitted_peaks = []
-                        for peak in peaks:
-                            if peak < len(time_list):
-                                frame = int(round(phoneme_results[peak]["start"] * self.fps))
-                                fitted_peaks.append(frame)
+                        if peaks:
+                            for peak in peaks:
+                                # Make sure peak is a valid index in time_list
+                                if peak < len(time_list):
+                                    # For the first peak, use frame 0
+                                    if peak == 0:
+                                        fitted_peaks.append(0)
+                                    # For other peaks, use the corresponding phoneme start time
+                                    elif peak - 1 < len(phoneme_results):
+                                        frame = int(round(phoneme_results[peak - 1]["start"] * self.fps))
+                                        fitted_peaks.append(frame)
+                        else:
+                            fitted_peaks.append(0)
                         fitted_peaks.append(int(round(self.soundDuration)))
                         fitted_peaks = list(set(fitted_peaks))
                         fitted_peaks.sort()
@@ -494,7 +504,7 @@ class LipsyncDoc:
                 else:  # ONNX
                     try:
                         # Load IPA to CMU conversion dictionary
-                        ipa_convert = json.load(open("ipa_cmu.json", encoding="utf8"))
+                        ipa_convert = json.load(open(path_utils.get_file_inside_exe("ipa_cmu.json"), encoding="utf8"))
                         
                         # Predict phonemes
                         phoneme_results = phoneme_recognizer.predict(self.soundPath, "phoneme")

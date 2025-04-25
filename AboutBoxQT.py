@@ -46,9 +46,9 @@ class AboutBox:
         self.main_window.license.setSource(self.markdown_url)
 
     def get_version_from_yaml(self):
-        version_file = open(path_utils.get_file_inside_exe("version_information.txt"))
+        version_file = open(path_utils.get_file_inside_exe("build_config.yaml"))
         version_data = yaml.safe_load(version_file)
-        return version_data["Version"]
+        return version_data["project"]["version"]
 
     def open_license(self, event):
         print(f"Clicked on {event.toString()}")

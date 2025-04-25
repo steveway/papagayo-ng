@@ -1,28 +1,3 @@
-# --coding: utf-8 --
-# nuitka-project: --onefile
-# nuitka-project: --onefile-windows-splash-screen-image={MAIN_DIRECTORY}/rsrc/splash.png
-# nuitka-project: --enable-plugin=pyside6
-# nuitka-project: --include-data-files=./about_markdown.html=./about_markdown.html
-# nuitka-project: --include-data-files=./gpl.txt=./gpl.txt
-# nuitka-project: --include-data-files=./ipa_cmu.json=./ipa_cmu.json
-# nuitka-project: --include-data-files=./qt-icons.qrc=./qt-icons.qrc
-# nuitka-project: --include-data-files=./readme.md=./readme.md
-# nuitka-project: --include-data-dir=./rsrc=./rsrc
-# nuitka-project: --include-data-dir=./phonemes=./phonemes
-# nuitka-project: --include-data-files=./papagayo-ng.ico=./papagayo-ng.ico
-# nuitka-project: --include-data-files=./version_information.txt=./version_information.txt
-# nuitka-project: --windows-icon-from-ico=./papagayo-ng.ico
-# nuitka-project: --company-name=Morevna Project
-# nuitka-project: --product-name=Papagayo-NG
-# nuitka-project: --product-version=1.7.0
-# nuitka-project-if: os.getenv("PAPAGAYO_DEBUG") == "yes":
-#  nuitka-project: --windows-console-mode=attach
-#  nuitka-project: --windows-force-stdout-spec={PROGRAM_BASE}.out.txt
-#  nuitka-project: --windows-force-stderr-spec={PROGRAM_BASE}.err.txt
-# nuitka-project-else:
-#  nuitka-project: --windows-console-mode=disable
-#  nuitka-project: --windows-force-stdout-spec={NULL}
-#  nuitka-project: --windows-force-stderr-spec={NULL}
 
 import argparse
 import ctypes

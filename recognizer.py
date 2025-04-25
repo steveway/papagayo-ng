@@ -11,6 +11,7 @@ import onnxruntime as ort
 import numpy as np
 import yaml
 import threading
+import path_utils
 import time
 import soundfile as sf
 import soxr
@@ -562,10 +563,44 @@ class AllosaurusRecognizer(BaseRecognizer):
                 logging.info(f"Running Allosaurus on {audio_file}")
                 try:
                     # First try with timestamp parameter if available
-                    phonemes = self.recognizer.recognize(audio_file, lang=language, timestamp=True)
+                    phonemes = self.recognizer.recognize(audio_file, timestamp=True)
+                    print(phonemes)
                     
                     # Check if we got proper timing information
-                    if isinstance(phonemes, list) and len(phonemes) > 0 and isinstance(phonemes[0], dict) and "start" in phonemes[0]:
+                    if isinstance(phonemes, str):
+                        # Parse the string output format (timestamp duration phoneme)
+                        lines = phonemes.strip().split('\n')
+                        result = []
+                        for line in lines:
+                            parts = line.strip().split()
+                            if len(parts) >= 3:
+                                try:
+                                    start = float(parts[0])
+                                    duration = float(parts[1])
+                                    phone = parts[2]
+                                    
+                                    # Convert IPA phoneme to CMU
+                                    from ai_output_process import get_best_fitting_output_from_list
+                                    
+                                    # Load the IPA to CMU mapping
+                                    ipa_cmu_path = path_utils.get_file_inside_exe("ipa_to_cmu.json")
+                                    with open(ipa_cmu_path, 'r', encoding='utf-8') as f:
+                                        ipa_cmu_dict = json.load(f)
+                                    
+                                    # Convert the phoneme
+                                    cmu_phoneme = get_best_fitting_output_from_list([phone], ipa_cmu_dict)[0]
+                                    
+                                    result.append({
+                                        "start": start,
+                                        "duration": duration,
+                                        "phoneme": cmu_phoneme
+                                    })
+                                except (ValueError, IndexError) as e:
+                                    logging.warning(f"Could not parse line: {line}, error: {str(e)}")
+                        
+                        if result:
+                            return result
+                    elif isinstance(phonemes, list) and len(phonemes) > 0 and isinstance(phonemes[0], dict) and "start" in phonemes[0]:
                         # Convert IPA phonemes to CMU phonemes
                         import json
                         import os
