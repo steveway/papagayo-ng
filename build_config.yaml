@@ -1,7 +1,7 @@
 # Nuitka build configuration
 project:
   name: "Papagayo-NG"
-  version: "1.9.0.0"
+  version: "1.9.1.0"
   company: "Morevna Project"
   description: "Lip-Sync Software"
   icon: "papagayo-ng.ico"

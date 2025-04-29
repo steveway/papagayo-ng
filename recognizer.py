@@ -11,6 +11,8 @@ from queue import Queue
 import logging
 import json
 from ai_output_process import get_best_fitting_output_from_list
+import utilities
+import path_utils
 
 os.environ['PHONEMIZER_ESPEAK_LIBRARY'] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
 
@@ -18,7 +20,6 @@ import onnxruntime as ort
 import numpy as np
 import yaml
 from allosaurus.app import read_recognizer
-import path_utils
 import time
 import soundfile as sf
 import soxr
@@ -693,16 +694,20 @@ class RhubarbRecognizer(BaseRecognizer):
         """Find the Rhubarb binary in the system"""
         
         system = platform.system()
-        if system == "Windows":
-            # Look for rhubarb.exe in the current directory and subdirectories
-            for root, dirs, files in os.walk("."):
-                if "rhubarb.exe" in files:
-                    return os.path.abspath(os.path.join(root, "rhubarb.exe"))
-        elif system == "Darwin" or system == "Linux":
-            # Look for rhubarb in the current directory and subdirectories
-            for root, dirs, files in os.walk("."):
-                if "rhubarb" in files:
-                    return os.path.abspath(os.path.join(root, "rhubarb"))
+        # Check for downloaded Rhubarb in app data
+        try:
+            app_data = utilities.get_app_data_path()
+            binary_name = "rhubarb.exe" if system == "Windows" else "rhubarb"
+            candidate = app_data / "rhubarb" / binary_name
+            if candidate.exists():
+                return str(candidate)
+        except Exception:
+            pass
+        
+        # Look for rhubarb.exe in the current directory and subdirectories
+        for root, dirs, files in os.walk("."):
+            if "rhubarb.exe" in files:
+                return os.path.abspath(os.path.join(root, "rhubarb.exe"))
         
         # If not found, check if it's in the PATH
         rhubarb_in_path = shutil.which("rhubarb")
@@ -759,8 +764,9 @@ class RhubarbRecognizer(BaseRecognizer):
                 phoneme_dicts.append({
                     "start": mouth_cue["start"],
                     "duration": mouth_cue["end"] - mouth_cue["start"],
-                    "phoneme": mouth_cue["value"]
+                    "phoneme": mouth_cue["value"] if mouth_cue["value"] != "X" else "rest"
                 })
+            print(f"Rhubarb output: {phoneme_dicts}")
             
             # Clean up the temporary file
             if os.path.exists(temp_json_path):

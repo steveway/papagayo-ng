@@ -561,14 +561,36 @@ class LipsyncDoc:
                 logging.info(f"Number of Phonemes: {len(phonemes)}")
                 logging.info(f"Auto-Recognized Fitted Peaks: {fitted_peaks}")
                 
-                # Create words from peaks
+                # Create words based on distribution_mode
                 list_of_words = []
-                for i in range(len(fitted_peaks) - 1):
-                    peak_left = fitted_peaks[i]
-                    peak_right = fitted_peaks[i + 1]
-                    if peak_right > peak_left:  # Only add valid word ranges
-                        list_of_words.append((peak_left, peak_right))
-                
+                mode = distribution_mode.lower()
+                if mode == "original":
+                    # Use original timestamps for each phoneme
+                    for p in phoneme_results:
+                        start_frame = int(round(p["start"] * self.fps))
+                        end_frame = int(round((p.get("start", 0) + p.get("duration", 0)) * self.fps))
+                        if end_frame < start_frame:
+                            end_frame = start_frame
+                        list_of_words.append((start_frame, end_frame))
+                elif mode == "even":
+                    # Distribute phonemes evenly across the sound duration
+                    total_phonemes = len(phonemes)
+                    if total_phonemes > 0:
+                        segment = self.soundDuration / total_phonemes
+                        boundaries = [int(round(i * segment)) for i in range(total_phonemes)] + [int(round(self.soundDuration))]
+                        for i in range(total_phonemes):
+                            start = boundaries[i]
+                            end = boundaries[i+1]
+                            if end < start:
+                                end = start
+                            list_of_words.append((start, end))
+                else:
+                    # Use peaks distribution
+                    for i in range(len(fitted_peaks) - 1):
+                        peak_left = fitted_peaks[i]
+                        peak_right = fitted_peaks[i + 1]
+                        if peak_right > peak_left:
+                            list_of_words.append((peak_left, peak_right))
                 logging.info(f"Auto-Recognized List of Words: {list_of_words}")
                 
                 # Create phrase and distribute phonemes

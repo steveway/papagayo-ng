@@ -1,3 +1,5 @@
+import logging
+
 def sort_by_score(elem):
     if elem.get("Score", None):
         return float(elem["Score"][:-1])
@@ -49,13 +51,11 @@ def get_best_fitting_output_from_list(input_list, dictionary):
         elif text == " " or text == "h#":
             result.append("rest")
         else:
-            try:
-                # Safely handle text processing
-                text_str = str(text).strip()
-                result.append(dictionary.get(text_str, text_str.upper()))
-            except (AttributeError, TypeError):
-                # If any error occurs, use a default value
-                import logging
-                logging.warning(f"Error processing phoneme: {text}")
+            text_str = str(text).strip()
+            print(f"Processing phoneme: {text_str}")
+            if text_str in dictionary:
+                result.append(dictionary[text_str])
+            else:
+                logging.warning(f"Phoneme {text_str} not found in dictionary")
                 result.append("rest")
     return result

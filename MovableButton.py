@@ -2,6 +2,7 @@
 # -*- coding: ISO-8859-1 -*-
 
 import math
+import time
 import re
 from PySide6 import QtCore, QtGui
 import PySide6.QtWidgets as QtWidgets
