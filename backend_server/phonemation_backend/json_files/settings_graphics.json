@@ -1,0 +1,45 @@
+[
+    {
+        "type": "bool",
+        "title": "Fullscreen",
+        "desc": "Set the window in windowed or fullscreen",
+        "section": "graphics",
+        "key": "fullscreen"
+    },
+    {
+        "type": "numeric",
+        "title": "FPS Limit",
+        "desc": "Set the limit of frames per second (Applies only after a restart)",
+        "section": "graphics",
+        "key": "fps_limit"
+    },
+    {
+        "type": "numeric",
+        "title": "Window Width",
+        "desc": "Set the window width",
+        "section": "graphics",
+        "key": "width"
+    },
+    {
+        "type": "numeric",
+        "title": "Window Height",
+        "desc": "Set the window height",
+        "section": "graphics",
+        "key": "height"
+    },
+    {
+        "type": "color",
+        "title": "Background Color",
+        "desc": "Set the background color",
+        "section": "graphics",
+        "key": "bg_color"
+    },
+    {
+        "type": "numeric",
+        "title": "Character Base Scale",
+        "desc": "Set the character base scale",
+        "section": "graphics",
+        "key": "char_scale"
+    }
+
+]

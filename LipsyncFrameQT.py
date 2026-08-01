@@ -19,35 +19,23 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-# import os
-# from utilities import Worker, WorkerSignals
 import importlib
-import json
 import logging
-import shutil
-import sys
 import os
-import tarfile
+import sys
 import time
-from pathlib import Path
 from functools import partial
 
-from PySide6.QtCore import QFile, SIGNAL
 from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtCore import QFile
 from PySide6.QtUiTools import QUiLoader as uic
 
-import urllib.request
-import io
-from zipfile import ZipFile
-import utilities
-import platform
 import path_utils
-
-from WaveformViewRewrite import WaveformView
-from MouthViewQT import MouthView
-
+import utilities
 from AboutBoxQT import AboutBox
+from MouthViewQT import MouthView
 from SettingsQT import SettingsWindow
+from WaveformViewRewrite import WaveformView
 import LipsyncDoc
 
 app_title = "Papagayo-NG"
@@ -59,6 +47,17 @@ lipsync_extension = "".join(" *.{}".format(ext) for ext in lipsync_extension_lis
 audio_extensions = "".join(" *.{}".format(ext) for ext in audio_extension_list)[1:]
 open_wildcard = "{} and sound files ({} {})".format(app_title, audio_extensions, lipsync_extension)
 save_wildcard = "{} files ({})".format(app_title, lipsync_extension)
+
+# Recognizer names (used in menus, config, and checkbox state)
+RECOGNIZER_ONNX = "ONNX"
+RECOGNIZER_LIST = (RECOGNIZER_ONNX,)
+
+# LipsyncObject object_type values
+OBJECT_TYPE_VOICE = "voice"
+OBJECT_TYPE_PHRASE = "phrase"
+OBJECT_TYPE_WORD = "word"
+
+DEFAULT_VOICE_NAME = "Voice 1"
 
 
 class DropFilter(QtCore.QObject):
@@ -87,6 +86,48 @@ class DropFilter(QtCore.QObject):
 
         else:
             return False
+
+
+class VoiceRecognitionThread(QtCore.QThread):
+    """Runs phoneme recognition in a background thread to keep the UI responsive.
+
+    Emits *progress_signal* with a status string during model loading and
+    recognition, *finished_signal* with (doc, error_message) when done.
+    """
+
+    progress_signal = QtCore.Signal(str)
+    finished_signal = QtCore.Signal(object, str)
+
+    def __init__(self, parent, doc):
+        super().__init__(parent)
+        self.doc = doc
+        self._is_running = False
+
+    def stop(self):
+        self._is_running = False
+
+    def run(self):
+        self._is_running = True
+        error_msg = ""
+        try:
+            self.progress_signal.emit("Preparing voice...")
+            if self.doc and self.doc.sound:
+                if len(self.doc.project_node.children) < 1:
+                    self.doc.current_voice = LipsyncDoc.LipSyncObject(
+                        object_type=OBJECT_TYPE_VOICE, name=DEFAULT_VOICE_NAME,
+                        parent=self.doc.project_node)
+                else:
+                    self.doc.current_voice.children = []
+
+                self.progress_signal.emit("Loading model...")
+                self.doc.auto_recognize_phoneme(manual_invoke=True)
+                self.progress_signal.emit("Done")
+        except Exception as e:
+            logging.error(f"Voice recognition thread error: {e}")
+            error_msg = str(e)
+
+        if self._is_running:
+            self.finished_signal.emit(self.doc, error_msg)
 
 
 def sort_mouth_list_order(elem):
@@ -121,7 +162,7 @@ def open_file_no_gui(path, parent):
             doc = None
         else:
             if len(doc.project_node.children) < 1:
-                doc.current_voice = LipsyncDoc.LipSyncObject(object_type="voice", name="Voice 1",
+                doc.current_voice = LipsyncDoc.LipSyncObject(object_type=OBJECT_TYPE_VOICE, name=DEFAULT_VOICE_NAME,
                                                              parent=doc.project_node)
             elif not doc.current_voice:
                 doc.current_voice = doc.project_node.children[0]
@@ -276,43 +317,14 @@ class LipsyncFrame:
         self.tab_add_button.clicked.connect(self.on_new_voice)
         self.tab_remove_button.clicked.connect(self.on_del_voice)
         self.main_window.current_voice.tabBar().currentChanged.connect(self.on_sel_voice_tab)
-        self.recognize_menu = QtWidgets.QMenu()
-        self.allo_select = self.recognize_menu.addAction("Allosaurus")
-        self.rhubarb_select = self.recognize_menu.addAction("Rhubarb")
-        self.onnx_select = self.recognize_menu.addAction("ONNX")
-        self.allo_select.setCheckable(True)
-        self.rhubarb_select.setCheckable(True)
-        self.onnx_select.setCheckable(True)
-        if self.config.get_recognizer() == "Allosaurus":
-            self.allo_select.setChecked(True)
-        elif self.config.get_recognizer() == "Rhubarb":
-            self.rhubarb_select.setChecked(True)
-        elif self.config.get_recognizer() == "ONNX":
-            self.onnx_select.setChecked(True)
-        self.allo_select.triggered.connect(partial(self.select_voice_recognizer, "Allosaurus"))
-        self.rhubarb_select.triggered.connect(partial(self.select_voice_recognizer, "Rhubarb"))
-        self.onnx_select.triggered.connect(partial(self.select_voice_recognizer, "ONNX"))
-        self.main_window.voice_recognition_button.setMenu(self.recognize_menu)
+        # Voice recognition button — only ONNX is supported now.
+        # No dropdown menu needed; the button triggers recognition directly.
+        self.onnx_select = None  # kept for _set_recognizer_checkboxes compat
+        self._set_recognizer_checkboxes(self.config.get_recognizer())
 
         self.dropfilter = DropFilter()
         self.main_window.topLevelWidget().installEventFilter(self.dropfilter)
 
-        self.main_window.action_allo_download.triggered.connect(
-            lambda: self.start_download(self.download_allosaurus_model))
-        self.main_window.action_rhubarb_download.triggered.connect(lambda: self.start_download(self.download_rhubarb))
-        self.main_window.action_ffmpeg_download.triggered.connect(lambda: self.start_download(self.download_ffmpeg))
-        if not utilities.ffmpeg_binaries_exists():
-            self.ffmpeg_action = QtGui.QAction("Download FFmpeg")
-            self.ffmpeg_action.triggered.connect(lambda: self.start_download(self.download_ffmpeg))
-            self.main_window.menubar.addAction(self.ffmpeg_action)
-        if not utilities.allosaurus_model_exists():
-            self.model_action = QtGui.QAction("Download AI Model")
-            self.model_action.triggered.connect(lambda: self.start_download(self.download_allosaurus_model))
-            self.main_window.menubar.addAction(self.model_action)
-        if not utilities.rhubarb_binaries_exists():
-            self.rhubarb_action = QtGui.QAction("Download Rhubarb")
-            self.rhubarb_action.triggered.connect(lambda: self.start_download(self.download_rhubarb))
-            self.main_window.menubar.addAction(self.rhubarb_action)
         self.change_stylesheet()
         self.cur_frame = 0
         self.timer = None
@@ -330,7 +342,7 @@ class LipsyncFrame:
     def show_error_dialog(self, error_message):
         dlg = QtWidgets.QMessageBox()
         dlg.setText(error_message)
-        dlg.setWindowTitle("Missing Phoneme Conversion")
+        dlg.setWindowTitle(app_title)
         dlg.setWindowIcon(self.main_window.windowIcon())
         dlg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Ok)
@@ -345,181 +357,6 @@ class LipsyncFrame:
         else:
             self.app.setStyleSheet("")
 
-    def download_general_finished(self):
-        if utilities.allosaurus_model_exists():
-            try:
-                self.main_window.menubar.removeAction(self.model_action)
-            except AttributeError:
-                pass  # was already deleted
-        if utilities.ffmpeg_binaries_exists():
-            try:
-                self.main_window.menubar.removeAction(self.ffmpeg_action)
-            except AttributeError:
-                pass  # was already deleted
-        if utilities.rhubarb_binaries_exists():
-            try:
-                self.main_window.menubar.removeAction(self.rhubarb_action)
-            except AttributeError:
-                pass  # was already deleted
-        self.status_progress.hide()
-
-    def download_ffmpeg_finished(self):
-        self.download_general_finished()
-        dlg = QtWidgets.QMessageBox()
-        dlg.setText("Download of FFMPEG is finished. \nPlease close and restart Papagayo-NG")
-        dlg.setWindowTitle(app_title)
-        dlg.setWindowIcon(self.main_window.windowIcon())
-        dlg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
-        dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Ok)
-        dlg.setIcon(QtWidgets.QMessageBox.Icon.Information)
-        dlg.exec_()
-
-    def start_download(self, work_job):
-        worker = utilities.Worker(work_job)
-        if work_job == self.download_ffmpeg:
-            worker.signals.finished.connect(self.download_ffmpeg_finished)
-        elif work_job == self.download_allosaurus_model:
-            worker.signals.finished.connect(self.download_general_finished)
-        elif work_job == self.download_rhubarb:
-            worker.signals.finished.connect(self.download_general_finished)
-        worker.signals.progress.connect(self.status_bar_progress)
-        self.status_progress.show()
-        self.status_progress.setMaximum(100)
-        self.threadpool.start(worker)
-
-    def status_bar_progress(self, n):
-        self.status_progress.setValue(n)
-        QtCore.QCoreApplication.processEvents()
-
-    def download_allosaurus_model(self, progress_callback):
-        model_name = str(self.config.get(SettingsManager.Keys.VoiceRecognition.ALLOSAURUS_MODEL, "latest"))
-        url = 'https://github.com/xinjli/allosaurus/releases/download/v1.0/' + model_name + '.tar.gz'
-        model_dir = utilities.get_app_data_path() / "allosaurus_model"
-        with urllib.request.urlopen(url) as req:
-            length = req.getheader('content-length')
-            block_size = 1000000
-            if length:
-                length = int(length)
-                block_size = max(4096, length // 100)
-            buffer_all = io.BytesIO()
-            size = 0
-            while True:
-                buffer_now = req.read(block_size)
-                if not buffer_now:
-                    break
-                buffer_all.write(buffer_now)
-                size += len(buffer_now)
-                if length:
-                    percent = int((size / length) * 100)
-                    progress_callback.emit(percent)
-            if buffer_all:
-                buffer_all.seek(0)
-                files = tarfile.open(fileobj=buffer_all)
-                files.extractall(str(model_dir))
-                if (model_dir / "latest").exists():
-                    shutil.rmtree(str(model_dir / "latest"))
-                old_model_dirname = os.listdir(model_dir)[0]
-                (model_dir / old_model_dirname).rename(model_dir / "latest")
-        return
-
-    def download_ffmpeg(self, progress_callback):
-        ffmpeg_binary = "ffmpeg.exe"
-        ffprobe_binary = "ffprobe.exe"
-        ffmpeg_build_url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-        ffmpeg_json = json.loads(
-            urllib.request.urlopen("https://api.github.com/repos/BtbN/FFmpeg-Builds/releases").read())
-        for download in ffmpeg_json[0]["assets"]:
-            if download["name"].endswith("win64-lgpl.zip"):
-                ffmpeg_build_url = download["browser_download_url"]
-        if platform.system() == "Darwin":
-            ffmpeg_binary = "ffmpeg"
-            ffprobe_binary = "ffprobe"
-            ffmpeg_build_url = "https://evermeet.cx/ffmpeg/getrelease/zip"
-        ffmpeg_path = utilities.get_app_data_path() / ffmpeg_binary
-        ffprobe_path = utilities.get_app_data_path() / ffprobe_binary
-        try:
-            with urllib.request.urlopen(ffmpeg_build_url) as req:
-                length = req.getheader('content-length')
-                block_size = 1000000
-                if length:
-                    length = int(length)
-                    block_size = max(4096, length // 100)
-                buffer_all = io.BytesIO()
-                size = 0
-                while True:
-                    buffer_now = req.read(block_size)
-                    if not buffer_now:
-                        break
-                    buffer_all.write(buffer_now)
-                    size += len(buffer_now)
-                    if length:
-                        percent = int((size / length) * 100)
-                        progress_callback.emit(percent)
-                if buffer_all:
-                    ffmpeg_zip = ZipFile(buffer_all)
-                    for zfile in ffmpeg_zip.filelist:
-                        if ffmpeg_binary in zfile.filename:
-                            ffmpeg_file_content = ffmpeg_zip.read(zfile.filename)
-                            ffmpeg_file = open(ffmpeg_path, "wb")
-                            ffmpeg_file.write(ffmpeg_file_content)
-                            ffmpeg_file.close()
-                        elif ffprobe_binary in zfile.filename:
-                            ffprobe_file_content = ffmpeg_zip.read(zfile.filename)
-                            ffprobe_file = open(ffprobe_path, "wb")
-                            ffprobe_file.write(ffprobe_file_content)
-                            ffprobe_file.close()
-        except TimeoutError:
-            # Download Failed
-            pass
-        return
-
-    def download_rhubarb(self, progress_callback):
-        binary = "/rhubarb/rhubarb.exe"
-        release_url = ""
-        if platform.system() == "Darwin":
-            binary = "/rhubarb/rhubarb"
-        github_url = "https://api.github.com/repos/DanielSWolf/rhubarb-lip-sync/releases"
-        download_json = json.loads(urllib.request.urlopen(github_url).read())
-        for download in download_json[0]["assets"]:
-            if platform.system() == "Darwin":
-                if download["name"].endswith("-macOS.zip"):
-                    release_url = download["browser_download_url"]
-            else:
-                if download["name"].endswith("-Windows.zip"):
-                    release_url = download["browser_download_url"]
-        rhubarb_path = utilities.get_app_data_path() / binary
-
-        try:
-            with urllib.request.urlopen(release_url) as req:
-                length = req.getheader('content-length')
-                block_size = 1000000
-                if length:
-                    length = int(length)
-                    block_size = max(4096, length // 100)
-                buffer_all = io.BytesIO()
-                size = 0
-                while True:
-                    buffer_now = req.read(block_size)
-                    if not buffer_now:
-                        break
-                    buffer_all.write(buffer_now)
-                    size += len(buffer_now)
-                    if length:
-                        percent = int((size / length) * 100)
-                        progress_callback.emit(percent)
-                if buffer_all:
-                    rhubarb_zip = ZipFile(buffer_all)
-                    dirs = list(set([os.path.dirname(x) for x in rhubarb_zip.namelist()]))
-                    main_dir = os.path.dirname([os.path.split(x)[0] for x in dirs][0])
-                    if (utilities.get_app_data_path() / "rhubarb").exists():
-                        shutil.rmtree(str(utilities.get_app_data_path() / "rhubarb"))
-                    rhubarb_zip.extractall(str(utilities.get_app_data_path()))
-                    (utilities.get_app_data_path() / main_dir).rename(utilities.get_app_data_path() / "rhubarb")
-        except TimeoutError:
-            # Download Failed
-            pass
-        return
-
     def load_ui_widget(self, ui_filename, parent=None):
         self.loader = uic()
         file = QFile(ui_filename)
@@ -530,106 +367,100 @@ class LipsyncFrame:
         file.close()
         return self.ui
 
+    def status_bar_progress(self, n):
+        """Progress callback used by WaveformView and other workers."""
+        self.status_progress.setValue(n)
+        QtCore.QCoreApplication.processEvents()
+
     def set_current_phoneme_set(self, event=None):
         if self.doc:
             phonemeset_name = self.main_window.phoneme_set.currentText()
             self.phonemeset.selected_set = self.phonemeset.load(phonemeset_name)
 
+    def _set_recognizer_checkboxes(self, recognizer_name):
+        """No-op now that only ONNX is supported. Kept for compatibility."""
+        pass
+
     def select_voice_recognizer(self, event=None):
-        print(event)
-        self.config.set_recognizer(event)
-        if event == "Allosaurus":
-            self.allo_select.setChecked(True)
-            self.rhubarb_select.setChecked(False)
-            self.onnx_select.setChecked(False)
-        elif event == "Rhubarb":
-            self.allo_select.setChecked(False)
-            self.rhubarb_select.setChecked(True)
-            self.onnx_select.setChecked(False)
-        elif event == "ONNX":
-            self.onnx_select.setChecked(True)
-            self.allo_select.setChecked(False)
-            self.rhubarb_select.setChecked(False)
+        """No-op now that only ONNX is supported. Kept for compatibility."""
+        pass
 
     def change_voice_for_selection(self):
         # TODO: We don't handle overlapping objects yet!
-        print("Currently Selected Object: " + self.main_window.waveform_view.currently_selected_object.title)
-        print(
-            "Corresponding LipsyncObject: " + str(vars(self.main_window.waveform_view.currently_selected_object.node)))
-        print("Current Voice: " + self.doc.current_voice.name)
-        print("New Voice: " + self.main_window.voice_for_selection.currentText())
-        moving_object = self.main_window.waveform_view.currently_selected_object.node
-        new_voice_parent = None
-        for voice in self.doc.project_node.children:
-            if voice.name == self.main_window.voice_for_selection.currentText():
-                new_voice_parent = voice
+        selected_obj = self.main_window.waveform_view.currently_selected_object
+        logging.debug("Currently Selected Object: %s", selected_obj.title)
+        logging.debug("Corresponding LipsyncObject: %s", vars(selected_obj.node))
+        logging.debug("Current Voice: %s", self.doc.current_voice.name)
+        logging.debug("New Voice: %s", self.main_window.voice_for_selection.currentText())
+        moving_object = selected_obj.node
+        target_voice_name = self.main_window.voice_for_selection.currentText()
+        new_voice_parent = next(
+            (v for v in self.doc.project_node.children if v.name == target_voice_name), None)
         # Find existing parent object for selected one
         old_parent = moving_object.parent
         parent_instance = old_parent.object_type
         new_parent_object = None
 
-        if parent_instance == "voice":
-            new_parent_object = new_voice_parent
-            moving_object.parent = new_parent_object
+        if parent_instance == OBJECT_TYPE_VOICE:
+            moving_object.parent = new_voice_parent
         else:
+            # Search for an existing phrase/word in the target voice that contains this object
             for possible_parent in new_voice_parent.children:
-                if parent_instance == "phrase":
+                if parent_instance == OBJECT_TYPE_PHRASE:
                     if possible_parent.start_frame <= moving_object.start_frame and possible_parent.end_frame >= moving_object.end_frame:
                         new_parent_object = possible_parent
-                elif parent_instance == "word":
+                elif parent_instance == OBJECT_TYPE_WORD:
                     for possible_word_parent in possible_parent.children:
                         if possible_word_parent.start_frame <= moving_object.start_frame <= possible_word_parent.end_frame:
                             new_parent_object = possible_word_parent
-            if not new_parent_object:
-                if parent_instance == "phrase":
-                    new_temp_parent = LipsyncDoc.LipSyncObject(object_type="phrase", text=moving_object.text,
-                                                               start_frame=moving_object.start_frame,
-                                                               end_frame=moving_object.end_frame,
-                                                               parent=new_voice_parent,
-                                                               children=[moving_object])
+            if new_parent_object:
+                moving_object.parent = new_parent_object
+            else:
+                # No matching container found: create a new phrase (and word, if needed) under the target voice
+                if parent_instance == OBJECT_TYPE_PHRASE:
+                    new_temp_parent = LipsyncDoc.LipSyncObject(
+                        object_type=OBJECT_TYPE_PHRASE, text=moving_object.text,
+                        start_frame=moving_object.start_frame, end_frame=moving_object.end_frame,
+                        parent=new_voice_parent, children=[moving_object])
                     moving_object.parent = new_temp_parent
-
-                if parent_instance == "word":
-                    new_temp_parent = LipsyncDoc.LipSyncObject(object_type="phrase", text=moving_object.text,
-                                                               start_frame=moving_object.start_frame,
-                                                               end_frame=moving_object.end_frame,
-                                                               parent=new_voice_parent)
-                    new_word_parent = LipsyncDoc.LipSyncObject(object_type="word", text=moving_object.text,
-                                                               start_frame=moving_object.start_frame,
-                                                               end_frame=moving_object.end_frame,
-                                                               parent=new_temp_parent,
-                                                               children=[moving_object])
+                elif parent_instance == OBJECT_TYPE_WORD:
+                    new_temp_parent = LipsyncDoc.LipSyncObject(
+                        object_type=OBJECT_TYPE_PHRASE, text=moving_object.text,
+                        start_frame=moving_object.start_frame, end_frame=moving_object.end_frame,
+                        parent=new_voice_parent)
+                    new_word_parent = LipsyncDoc.LipSyncObject(
+                        object_type=OBJECT_TYPE_WORD, text=moving_object.text,
+                        start_frame=moving_object.start_frame, end_frame=moving_object.end_frame,
+                        parent=new_temp_parent, children=[moving_object])
                     moving_object.parent = new_word_parent
 
-            else:
-                moving_object.parent = new_parent_object
-
-        if old_parent.object_type == "word":
+        # Clean up emptied containers left behind in the old voice
+        if old_parent.object_type == OBJECT_TYPE_WORD:
             phrase_parent = old_parent.parent
             if not old_parent.children:
                 old_parent.parent = None
             if not phrase_parent.children:
                 phrase_parent.parent = None
-        if old_parent.object_type == "phrase":
+        if old_parent.object_type == OBJECT_TYPE_PHRASE:
             if not old_parent.children:
                 old_parent.parent = None
         self.main_window.waveform_view.set_document(self.doc, force=True, clear_scene=True)
+
+    def _sync_tags_from_widget(self):
+        """Push the current contents of the tag list widget into the selected object's tags."""
+        tags = [self.main_window.list_of_tags.item(i).text()
+                for i in range(self.main_window.list_of_tags.count())]
+        self.main_window.waveform_view.currently_selected_object.set_tags(tags)
 
     def add_tag(self):
         if self.main_window.tag_entry.text():
             self.main_window.list_of_tags.addItem(self.main_window.tag_entry.text())
             self.main_window.tag_entry.clear()
-            temp_list = []
-            for i in range(self.main_window.list_of_tags.count()):
-                temp_list.append(self.main_window.list_of_tags.item(i).text())
-            self.main_window.waveform_view.currently_selected_object.set_tags(temp_list)
+            self._sync_tags_from_widget()
 
     def remove_tag(self):
         self.main_window.list_of_tags.takeItem(self.main_window.list_of_tags.currentRow())
-        temp_list = []
-        for i in range(self.main_window.list_of_tags.count()):
-            temp_list.append(self.main_window.list_of_tags.item(i).text())
-        self.main_window.waveform_view.currently_selected_object.set_tags(temp_list)
+        self._sync_tags_from_widget()
 
     def spread_out(self):
         wfv = self.main_window.waveform_view
@@ -657,7 +488,6 @@ class LipsyncFrame:
             wfv.scene().setSceneRect(wfv.scene().sceneRect().x(), wfv.scene().sceneRect().y(),
                                      wfv.sceneRect().width() * resize_multiplier, wfv.scene().sceneRect().height())
             wfv.setSceneRect(wfv.scene().sceneRect())
-            wfv.scroll_position *= resize_multiplier
             wfv.scroll_position = 0
             wfv.horizontalScrollBar().setValue(wfv.scroll_position)
             self.doc.project_node.sound_duration = int(self.doc.sound.Duration() * self.doc.fps)
@@ -665,14 +495,43 @@ class LipsyncFrame:
 
     def on_voice_recognize(self):
         if self.doc and self.doc.sound:
-            if len(self.doc.project_node.children) < 1:
-                self.doc.current_voice = LipsyncDoc.LipSyncObject(object_type="voice", name="Voice 1",
-                                                                  parent=self.doc.project_node)
-            else:
-                self.doc.current_voice.children = []
-            self.doc.auto_recognize_phoneme(manual_invoke=True)
-            self.main_window.waveform_view.set_document(self.doc, force=True, clear_scene=True)
-            self.main_window.mouth_view.set_document(self.doc)
+            # Disable the button while recognition is running.
+            self.main_window.voice_recognition_button.setEnabled(False)
+            self.main_window.voice_recognition_button.setText("Recognizing...")
+
+            # Show the status progress bar in indeterminate mode.
+            self.status_progress.show()
+            self.status_progress.setRange(0, 0)  # indeterminate / busy indicator
+
+            # Run recognition in a background thread.
+            self._recognition_thread = VoiceRecognitionThread(
+                self.main_window, self.doc)
+            self._recognition_thread.progress_signal.connect(
+                self._on_recognition_progress, QtCore.Qt.QueuedConnection)
+            self._recognition_thread.finished_signal.connect(
+                self._on_recognition_finished, QtCore.Qt.QueuedConnection)
+            self._recognition_thread.start()
+
+    def _on_recognition_progress(self, message):
+        """Update the status bar with progress messages from the recognition thread."""
+        self.main_window.statusbar.showMessage(message)
+        QtCore.QCoreApplication.processEvents()
+
+    def _on_recognition_finished(self, doc, error_msg):
+        """Called when the background recognition thread completes."""
+        self.status_progress.hide()
+        self.main_window.voice_recognition_button.setEnabled(True)
+        self.main_window.voice_recognition_button.setText("Voice Recognition")
+
+        if error_msg:
+            self.main_window.statusbar.showMessage(f"Recognition failed: {error_msg}", 5000)
+            logging.error(f"Recognition failed: {error_msg}")
+        else:
+            self.main_window.statusbar.showMessage("Recognition complete.", 3000)
+
+        # Refresh the views with the recognized data.
+        self.main_window.waveform_view.set_document(self.doc, force=True, clear_scene=True)
+        self.main_window.mouth_view.set_document(self.doc)
 
     def close_doc_ok(self):
         if self.doc is not None:
@@ -694,8 +553,6 @@ class LipsyncFrame:
             elif result == QtWidgets.QMessageBox.StandardButton.No:
                 self.config.set_fps(str(self.doc.fps))
                 return True
-            elif result == QtWidgets.QMessageBox.StandardButton.Cancel:
-                return False
         else:
             return True
 
@@ -711,95 +568,100 @@ class LipsyncFrame:
             self.config.set("WorkingDir", os.path.dirname(file_path))
             self.open(file_path)
 
+    def _open_lipsync_project(self, path):
+        """Open a .pgo/.pg2 project, prompting for audio if the referenced file is missing."""
+        if path.endswith(lipsync_extension_list[0]):
+            self.doc.open(path)
+        elif path.endswith(lipsync_extension_list[1]):
+            self.doc.open_json(path)
+        while self.doc.sound is None:
+            # if no sound file found, then ask user to specify one
+            dlg = QtWidgets.QMessageBox(self.main_window)
+            dlg.setText('Please load correct audio file')
+            dlg.setWindowTitle(app_title)
+            dlg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            dlg.exec_()  # This should open it as a modal blocking window
+            file_path = QtWidgets.QFileDialog.getOpenFileName(
+                self.main_window, "Open Audio",
+                str(self.config.get("WorkingDir", utilities.get_main_dir())),
+                audio_extensions)[0]
+            if file_path:
+                self.doc.open_audio(file_path)
+
+    def _open_audio_file(self, path):
+        """Open an audio file, create a default voice, run recognition, and load any .trans file."""
+        self.doc.fps = self.config.get_fps()
+        self.doc.open_audio(path)
+        if self.doc.sound is None:
+            self.doc = None
+            return
+        if len(self.doc.project_node.children) < 1:
+            self.doc.current_voice = LipsyncDoc.LipSyncObject(
+                object_type=OBJECT_TYPE_VOICE, name=DEFAULT_VOICE_NAME, parent=self.doc.project_node)
+        elif not self.doc.current_voice:
+            self.doc.current_voice = self.doc.project_node.children[0]
+        # Run recognition in the background to avoid freezing the UI.
+        self.on_voice_recognize()
+        # check for a .trans file with the same name as the doc
+        try:
+            with open("{}.trans".format(path.rsplit('.', 1)[0]), 'r') as txt_file:  # TODO: Check if path is correct
+                for line in txt_file:
+                    self.main_window.current_voice.tabBar().addTab(line.strip())
+        except OSError:
+            pass
+
+    def _post_load_setup(self, path):
+        """Wire up the UI after a document has been successfully loaded."""
+        mw = self.main_window
+        mw.setWindowTitle("{} [{}] - {}".format(self.doc.name, path, app_title))
+        mw.waveform_view.first_update = True
+        mw.waveform_view.set_document(self.doc, force=True, clear_scene=True)
+        mw.mouth_view.set_document(self.doc)
+        # Reenable all disabled widgets
+        self._set_doc_widgets_enabled(True)
+        mw.volume_slider.setValue(self.config.get_int("volume", 50))
+        mw.action_cut.setEnabled(True)
+        mw.action_cut.triggered.connect(self.on_del_object)
+        mw.choose_imageset_button.setEnabled(False)
+        mw.action_convert_phonemes.triggered.connect(self.doc.convert_to_phonemeset)
+        if self.doc.sound is None:
+            # No sound: disable playback/zoom again (overriding the helper)
+            mw.action_play.setEnabled(False)
+            mw.action_stop.setEnabled(False)
+            mw.action_zoom_in.setEnabled(False)
+            mw.action_zoom_out.setEnabled(False)
+            mw.action_reset_zoom.setEnabled(False)
+        mw.tag_list_group.setEnabled(False)
+        list_of_voices = [voice.name for voice in self.doc.project_node.children]
+        mw.voice_for_selection.clear()
+        mw.voice_for_selection.addItems(list_of_voices)
+        mw.phoneme_set.setCurrentIndex(mw.phoneme_set.findText(self.phonemeset.selected_set))
+
+        first_entry = True
+        for voice in self.doc.project_node.children:
+            if not first_entry:
+                mw.current_voice.tabBar().addTab(voice.name)
+            else:
+                mw.current_voice.tabBar().setTabText(0, voice.name)
+                first_entry = False
+        mw.fps_input.setValue(self.doc.fps)
+        mw.voice_name_input.setText(self.doc.current_voice.name)
+        mw.text_edit.setText(self.doc.current_voice.text)
+
+        # reload dictionary
+        self.on_reload_dictionary()
+        self.doc.dirty = False
+
     def open(self, path):
         while self.main_window.current_voice.tabBar().count() > 1:
             self.main_window.current_voice.tabBar().removeTab(self.main_window.current_voice.tabBar().count() - 1)
         self.doc = LipsyncDoc.LipsyncDoc(self.langman, self)
         if any(path.endswith(ext) for ext in lipsync_extension_list):
-            if path.endswith(lipsync_extension_list[0]):
-                # open a lipsync project
-                self.doc.open(path)
-            elif path.endswith(lipsync_extension_list[1]):
-                # open a json based lipsync project
-                self.doc.open_json(path)
-            while self.doc.sound is None:
-                # if no sound file found, then ask user to specify one
-                dlg = QtWidgets.QMessageBox(self.main_window)
-                dlg.setText('Please load correct audio file')
-                dlg.setWindowTitle(app_title)
-                dlg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-                dlg.exec_()  # This should open it as a modal blocking window
-                file_path = QtWidgets.QFileDialog.getOpenFileName(self.main_window,
-                                                                  "Open Audio",
-                                                                  str(self.config.get("WorkingDir",
-                                                                                        utilities.get_main_dir())),
-                                                                  audio_extensions)[0]
-                if file_path:
-                    self.doc.open_audio(file_path)
+            self._open_lipsync_project(path)
         else:
-            # open an audio file
-            self.doc.fps = self.config.get_fps()
-            self.doc.open_audio(path)
-            if self.doc.sound is None:
-                self.doc = None
-            else:
-                if len(self.doc.project_node.children) < 1:
-                    self.doc.current_voice = LipsyncDoc.LipSyncObject(object_type="voice", name="Voice 1",
-                                                                      parent=self.doc.project_node)
-                elif not self.doc.current_voice:
-                    self.doc.current_voice = self.doc.project_node.children[0]
-                self.doc.auto_recognize_phoneme()
-                # check for a .trans file with the same name as the doc
-                try:
-                    txt_file = open("{}.trans".format(path.rsplit('.', 1)[0]), 'r')  # TODO: Check if path is correct
-                    for line in txt_file:
-                        self.main_window.current_voice.tabBar().addTab(QtGui.QStandardItem(line))
-                except:
-                    pass
+            self._open_audio_file(path)
         if self.doc is not None:
-            self.main_window.setWindowTitle("{} [{}] - {}".format(self.doc.name, path, app_title))
-            self.main_window.waveform_view.first_update = True
-            self.main_window.waveform_view.set_document(self.doc, force=True, clear_scene=True)
-            self.main_window.mouth_view.set_document(self.doc)
-            # Reenable all disabled widgets TODO: Can likely be reduced
-            self.main_window.vertical_layout_right.setEnabled(True)
-            self.main_window.vertical_layout_left.setEnabled(True)
-            self.main_window.volume_slider.setEnabled(True)
-            self.main_window.volume_slider.setValue(self.config.get_int("volume", 50))
-            self.main_window.action_save.setEnabled(True)
-            self.main_window.action_save_as.setEnabled(True)
-            self.main_window.action_cut.setEnabled(True)
-            self.main_window.action_cut.triggered.connect(self.on_del_object)
-            self.main_window.menu_edit.setEnabled(True)
-            self.main_window.choose_imageset_button.setEnabled(False)
-            self.main_window.action_convert_phonemes.triggered.connect(self.doc.convert_to_phonemeset)
-            if self.doc.sound is not None:
-                self.main_window.action_play.setEnabled(True)
-                # self.main_window.action_stop.setEnabled(True)
-                self.main_window.action_zoom_in.setEnabled(True)
-                self.main_window.action_zoom_out.setEnabled(True)
-                self.main_window.action_reset_zoom.setEnabled(True)
-            self.main_window.tag_list_group.setEnabled(False)
-            list_of_voices = [voice.name for voice in self.doc.project_node.children]
-            self.main_window.voice_for_selection.clear()
-            self.main_window.voice_for_selection.addItems(list_of_voices)
-            current_index = self.main_window.phoneme_set.findText(self.phonemeset.selected_set)
-            self.main_window.phoneme_set.setCurrentIndex(current_index)
-
-            first_entry = True
-            for voice in self.doc.project_node.children:
-                if not first_entry:
-                    self.main_window.current_voice.tabBar().addTab(voice.name)
-                else:
-                    self.main_window.current_voice.tabBar().setTabText(0, voice.name)
-                    first_entry = False
-            self.main_window.fps_input.setValue(self.doc.fps)
-            self.main_window.voice_name_input.setText(self.doc.current_voice.name)
-            self.main_window.text_edit.setText(self.doc.current_voice.text)
-
-            # reload dictionary
-            self.on_reload_dictionary()
-            self.doc.dirty = False
+            self._post_load_setup(path)
 
     def on_save(self):
         if self.doc is None:
@@ -828,6 +690,21 @@ class LipsyncFrame:
                 self.doc.save2(file_path)
             self.main_window.setWindowTitle("{} [{}] - {}".format(self.doc.name, file_path, app_title))
 
+    def _set_doc_widgets_enabled(self, enabled):
+        """Toggle the common set of widgets that depend on a loaded document."""
+        mw = self.main_window
+        mw.vertical_layout_right.setEnabled(enabled)
+        mw.vertical_layout_left.setEnabled(enabled)
+        mw.volume_slider.setEnabled(enabled)
+        mw.action_save.setEnabled(enabled)
+        mw.action_save_as.setEnabled(enabled)
+        mw.menu_edit.setEnabled(enabled)
+        mw.action_play.setEnabled(enabled)
+        mw.action_stop.setEnabled(enabled)
+        mw.action_zoom_in.setEnabled(enabled)
+        mw.action_zoom_out.setEnabled(enabled)
+        mw.action_reset_zoom.setEnabled(enabled)
+
     def on_close(self):
         if self.doc is not None:
             self.close_doc_ok()
@@ -840,27 +717,14 @@ class LipsyncFrame:
         self.main_window.voice_name_input.clear()
         self.main_window.text_edit.clear()
         self.main_window.fps_input.clear()
-        # disabling widgets
-        self.main_window.vertical_layout_right.setEnabled(False)
-        self.main_window.vertical_layout_left.setEnabled(False)
-        self.main_window.volume_slider.setEnabled(False)
-        self.main_window.action_save.setEnabled(False)
-        self.main_window.action_save_as.setEnabled(False)
-        self.main_window.menu_edit.setEnabled(False)
-        self.main_window.action_play.setEnabled(False)
-        self.main_window.action_stop.setEnabled(False)
-        self.main_window.action_zoom_in.setEnabled(False)
-        self.main_window.action_zoom_out.setEnabled(False)
-        self.main_window.action_reset_zoom.setEnabled(False)
+        self._set_doc_widgets_enabled(False)
 
     def on_quit(self, event=None):
         self.on_close()
-        self.close(True)
+        self.main_window.close()
 
     def on_help(self, event=None):
         github_path = "https://github.com/morevnaproject/papagayo-ng/issues"
-        test_path = "file://{}".format(r"D:\Program Files (x86)\Papagayo\help\index.html")
-        real_path = "file://{}".format(os.path.join(utilities.get_main_dir(), "help", "index.html"))
         QtGui.QDesktopServices.openUrl(github_path)
 
     def on_about(self, event=None):
@@ -868,36 +732,13 @@ class LipsyncFrame:
         self.about_dlg.main_window.show()
 
     def show_settings(self, event=None):
-        self.settings_dlg = SettingsWindow(self.status_bar_progress, self.status_progress)
+        self.settings_dlg = SettingsWindow(None, self.status_progress)
         self.settings_dlg.main_window.show()
         self.settings_dlg.main_window.finished.connect(self.settings_closed)
 
     def settings_closed(self):
-        if not utilities.ffmpeg_binaries_exists():
-            self.ffmpeg_action = QtGui.QAction(self.translator.translate("LipsyncFrame", "Download FFmpeg"))
-            self.ffmpeg_action.triggered.connect(lambda: self.start_download(self.download_ffmpeg))
-            self.main_window.menubar.addAction(self.ffmpeg_action)
-        if not utilities.allosaurus_model_exists():
-            self.model_action = QtGui.QAction(self.translator.translate("LipsyncFrame", "Download AI Model"))
-            self.model_action.triggered.connect(lambda: self.start_download(self.download_allosaurus_model))
-            self.main_window.menubar.addAction(self.model_action)
-        if not utilities.rhubarb_binaries_exists():
-            self.rhubarb_action = QtGui.QAction(self.translator.translate("LipsyncFrame", "Download Rhubarb"))
-            self.rhubarb_action.triggered.connect(lambda: self.start_download(self.download_rhubarb))
-            self.main_window.menubar.addAction(self.rhubarb_action)
         self.main_window.waveform_view.set_document(self.doc, True, True)
-        if self.config.get_recognizer() == "Allosaurus":
-            self.allo_select.setChecked(True)
-            self.rhubarb_select.setChecked(False)
-            self.onnx_select.setChecked(False)
-        elif self.config.get_recognizer() == "Rhubarb":
-            self.rhubarb_select.setChecked(True)
-            self.allo_select.setChecked(False)
-            self.onnx_select.setChecked(False)
-        elif self.config.get_recognizer() == "ONNX":
-            self.onnx_select.setChecked(True)
-            self.allo_select.setChecked(False)
-            self.rhubarb_select.setChecked(False)
+        self._set_recognizer_checkboxes(self.config.get_recognizer())
         self.change_stylesheet()
 
     def on_play(self, event=None):
@@ -932,27 +773,30 @@ class LipsyncFrame:
             self.main_window.waveform_view.update()
             QtCore.QCoreApplication.processEvents()
 
+    def _update_playback_frame(self, cur_frame, fps_reference_time):
+        """If `cur_frame` changed, advance the mouth/waveform views and update the status bar FPS readout."""
+        if self.cur_frame == cur_frame:
+            return
+        self.cur_frame = cur_frame
+        self.main_window.mouth_view.set_frame(self.cur_frame)
+        self.main_window.waveform_view.set_frame(self.cur_frame)
+        try:
+            fps = 1.0 / (time.time() - fps_reference_time)
+        except ZeroDivisionError:
+            fps = 60
+        self.main_window.statusbar.showMessage(self.translator.translate(
+            "LipsyncFrame", "Frame: {:d} FPS: {:d}".format((cur_frame + 1), int(fps))))
+        self.main_window.waveform_view.scroll_position = self.main_window.waveform_view.horizontalScrollBar().value()
+
     def on_play_tick(self, event=None):
         if (self.doc is not None) and (self.doc.sound is not None):
             if self.doc.sound.is_playing():
                 cur_frame = int(self.doc.sound.current_time() * self.doc.fps)
-                calculated_time = time.time() - self.start_time
-                calculated_frame = round(calculated_time * self.doc.fps)
+                calculated_frame = round((time.time() - self.start_time) * self.doc.fps)
                 if calculated_frame > cur_frame:
                     cur_frame = calculated_frame
-                if self.cur_frame != cur_frame:
-                    self.cur_frame = cur_frame
-                    self.main_window.mouth_view.set_frame(self.cur_frame)
-                    self.main_window.waveform_view.set_frame(self.cur_frame)
-                    try:
-                        fps = 1.0 / (time.time() - self.start_time_for_fps_calc)
-                    except ZeroDivisionError:
-                        fps = 60
-                    self.main_window.statusbar.showMessage(self.translator.translate("LipsyncFrame",
-                                                                                     "Frame: {:d} FPS: {:d}".format(
-                                                                                         (cur_frame + 1), int(fps))))
-                    self.main_window.waveform_view.scroll_position = self.main_window.waveform_view.horizontalScrollBar().value()
-                    self.start_time_for_fps_calc = time.time()
+                self._update_playback_frame(cur_frame, self.start_time_for_fps_calc)
+                self.start_time_for_fps_calc = time.time()
             else:
                 self.main_window.waveform_view.temp_play_marker.setVisible(False)
                 self.on_stop()
@@ -961,26 +805,13 @@ class LipsyncFrame:
 
     def move_marker_callback(self, position):
         cur_frame = position // self.doc.fps
-        print(f"Current Position: {position}")
-        print(f"Frame Position: {cur_frame}")
+        logging.debug("Current Position: %s, Frame Position: %s", position, cur_frame)
         calculated_time = time.time() - self.start_time
         calculated_frame = round(calculated_time * self.doc.fps)
-        print(f"Calculated Time: {calculated_time}")
-        print(f"Calculated Frame: {calculated_frame}")
+        logging.debug("Calculated Time: %s, Calculated Frame: %s", calculated_time, calculated_frame)
         if calculated_frame > cur_frame:
             cur_frame = calculated_frame
-        if self.cur_frame != cur_frame:
-            self.cur_frame = cur_frame
-            self.main_window.mouth_view.set_frame(self.cur_frame)
-            self.main_window.waveform_view.set_frame(self.cur_frame)
-            try:
-                fps = 1.0 / (time.time() - self.start_time)
-            except ZeroDivisionError:
-                fps = 60
-            self.main_window.statusbar.showMessage(self.translator.translate("LipsyncFrame",
-                                                                             "Frame: {:d} FPS: {:d}".format(
-                                                                                 (cur_frame + 1), int(fps))))
-            self.main_window.waveform_view.scroll_position = self.main_window.waveform_view.horizontalScrollBar().value()
+        self._update_playback_frame(cur_frame, self.start_time)
 
     def change_volume(self, e):
         if self.doc and self.doc.sound:
@@ -1017,6 +848,10 @@ class LipsyncFrame:
 
     def on_voice_breakdown(self, event=None):
         if (self.doc is not None) and (self.doc.current_voice is not None):
+            if not self.doc.current_voice.text.strip():
+                self.show_error_dialog(
+                    self.translator.translate("LipsyncFrame", "Please enter some text to break down."))
+                return
             language = self.main_window.language_choice.currentText()
             phonemeset_name = self.main_window.phoneme_set.currentText()
             old_doc = self.doc.copy_to_dict()
@@ -1033,68 +868,80 @@ class LipsyncFrame:
             self.ignore_text_changes = False
             self.main_window.waveform_view.set_document(self.doc, True, True)
 
-    def on_voice_export(self, event=None):
-        language = self.main_window.language_choice.currentText()
-        if (self.doc is not None) and (self.doc.current_voice is not None):
-            exporter = self.main_window.export_combo.currentText()
-            message = ""
-            default_file = ""
-            wildcard = ""
-            if exporter == "MOHO":
-                message = self.translator.translate("LipsyncFrame", "Export Lipsync Data (MOHO)")
-                default_file = "{}".format(self.doc.soundPath.rsplit('.', 1)[0]) + ".dat"
-                wildcard = self.translator.translate("LipsyncFrame", "Moho switch files (*.dat)")
-            elif exporter == "ALELO":
-                fps = self.config.get_fps()
-                if fps != 100:
-                    dlg = QtWidgets.QMessageBox()
-                    dlg.setText(self.translator.translate("LipsyncFrame",
-                                                          "FPS is NOT 100 continue? (You will have issues downstream.)"))
-                    dlg.setStandardButtons(
-                        QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
-                    dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Yes)
-                    dlg.setIcon(QtWidgets.QMessageBox.Icon.Question)
-                    result = dlg.exec_()
-                    if result == QtWidgets.QMessageBox.StandardButton.Yes:
-                        message = self.translator.translate("LipsyncFrame", "Export Lipsync Data (ALELO)")
-                        default_file = "{}.txt".format(self.doc.soundPath.rsplit('.', 1)[0])
-                        wildcard = self.translator.translate("LipsyncFrame", "Alelo timing files (*.txt)|*.txt")
-                    elif result == QtWidgets.QMessageBox.StandardButton.No:
-                        return
-                    elif result == QtWidgets.QMessageBox.StandardButton.Cancel:
-                        return
-                else:
-                    message = self.translator.translate("LipsyncFrame", "Export Lipsync Data (ALELO)")
-                    default_file = "{}.txt".format(self.doc.soundPath.rsplit('.', 1)[0])
-                    wildcard = self.translator.translate("LipsyncFrame", "Alelo timing files (*.txt)|*.txt")
-            elif exporter == "Images":
-                message = self.translator.translate("LipsyncFrame", "Export Image Strip")
-                default_file = "{}".format(self.doc.soundPath.rsplit('.', 1)[0])
-                wildcard = ""
-            elif exporter == "JSON":
-                message = self.translator.translate("LipsyncFrame", "Export JSON Object")
-                default_file = "{}.json".format(self.doc.soundPath.rsplit('.', 1)[0])
-                wildcard = self.translator.translate("LipsyncFrame", "JSON object files (*.json)|*.json")
-            file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self.main_window,
-                                                                 message,
-                                                                 default_file,
-                                                                 wildcard,
-                                                                 options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+    # Per-exporter configuration: message/wildcard translation keys, default file
+    # extension, an optional pre-check (returning False aborts), and the dispatch
+    # callable that performs the actual export given (file_path, rest_frames).
+    _EXPORTER_CONFIG = {
+        "MOHO": {
+            "message_key": "Export Lipsync Data (MOHO)",
+            "default_ext": ".dat",
+            "wildcard_key": "Moho switch files (*.dat)",
+            "export": lambda self, fp, rest: self.doc.current_voice.export(
+                fp if ("." in fp) else fp + ".dat", rest),
+        },
+        "ALELO": {
+            "message_key": "Export Lipsync Data (ALELO)",
+            "default_ext": ".txt",
+            "wildcard_key": "Alelo timing files (*.txt)|*.txt",
+            "pre_check": "_alelo_fps_check",
+            "export": lambda self, fp, rest: self.doc.current_voice.export_alelo(
+                fp, self._export_language, self.langman, rest),
+        },
+        "Images": {
+            "message_key": "Export Image Strip",
+            "default_ext": "",
+            "wildcard_key": None,
+            "export": lambda self, fp, rest: self.doc.current_voice.export_images(
+                fp, self.main_window.mouth_choice.currentText(), rest),
+        },
+        "JSON": {
+            "message_key": "Export JSON Object",
+            "default_ext": ".json",
+            "wildcard_key": "JSON object files (*.json)|*.json",
+            "export": lambda self, fp, rest: self.doc.current_voice.export_json(
+                fp, self.doc.soundPath, rest),
+        },
+    }
 
-            if file_path:
-                self.config.set("WorkingDir", os.path.dirname(file_path))
-                if exporter == "MOHO":
-                    self.doc.current_voice.export(file_path if ("." in file_path) else file_path + ".dat",
-                                                  self.main_window.apply_rest_frames_on_export.isChecked())
-                elif exporter == "ALELO":
-                    self.doc.current_voice.export_alelo(file_path, language, self.langman,
-                                                        self.main_window.apply_rest_frames_on_export.isChecked())
-                elif exporter == "Images":
-                    self.doc.current_voice.export_images(file_path, self.main_window.mouth_choice.currentText(),
-                                                         self.main_window.apply_rest_frames_on_export.isChecked())
-                elif exporter == "JSON":
-                    self.doc.current_voice.export_json(file_path, self.doc.soundPath,
-                                                       self.main_window.apply_rest_frames_on_export.isChecked())
+    def _alelo_fps_check(self):
+        """ALELO expects 100 fps; warn and confirm before exporting at another rate."""
+        if self.config.get_fps() == 100:
+            return True
+        dlg = QtWidgets.QMessageBox()
+        dlg.setText(self.translator.translate(
+            "LipsyncFrame", "FPS is NOT 100 continue? (You will have issues downstream.)"))
+        dlg.setStandardButtons(
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+        dlg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Yes)
+        dlg.setIcon(QtWidgets.QMessageBox.Icon.Question)
+        return dlg.exec_() == QtWidgets.QMessageBox.StandardButton.Yes
+
+    def on_voice_export(self, event=None):
+        if self.doc is None or self.doc.current_voice is None:
+            return
+        exporter = self.main_window.export_combo.currentText()
+        cfg = self._EXPORTER_CONFIG.get(exporter)
+        if cfg is None:
+            return
+        # ALELO needs the current language for its export call; stash it on self
+        # so the lambda in _EXPORTER_CONFIG can reach it without extra plumbing.
+        self._export_language = self.main_window.language_choice.currentText()
+
+        if "pre_check" in cfg and not getattr(self, cfg["pre_check"])():
+            return
+
+        message = self.translator.translate("LipsyncFrame", cfg["message_key"])
+        default_file = "{}{}".format(self.doc.soundPath.rsplit('.', 1)[0], cfg["default_ext"])
+        wildcard = (self.translator.translate("LipsyncFrame", cfg["wildcard_key"])
+                    if cfg["wildcard_key"] else "")
+
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self.main_window, message, default_file, wildcard,
+            options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+        if not file_path:
+            return
+        self.config.set("WorkingDir", os.path.dirname(file_path))
+        cfg["export"](self, file_path, self.main_window.apply_rest_frames_on_export.isChecked())
 
     def on_sel_voice_tab(self, e):
         if not self.doc:
@@ -1132,7 +979,7 @@ class LipsyncFrame:
                     voice_exist_count += 1
                     break
 
-        self.doc.current_voice = LipsyncDoc.LipSyncObject(object_type="voice", name=new_voice_name,
+        self.doc.current_voice = LipsyncDoc.LipSyncObject(object_type=OBJECT_TYPE_VOICE, name=new_voice_name,
                                                           parent=self.doc.project_node)
         self.main_window.current_voice.tabBar().addTab(self.doc.current_voice.name)
         self.main_window.current_voice.tabBar().setCurrentIndex(self.main_window.current_voice.tabBar().count() - 1)

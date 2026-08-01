@@ -146,7 +146,7 @@ class SettingsManager:
     
     def get_recognizer(self):
         """Get the voice recognizer setting."""
-        return self.get(self.Keys.VoiceRecognition.RECOGNIZER, "Allosaurus")
+        return self.get(self.Keys.VoiceRecognition.RECOGNIZER, "ONNX")
     
     def set_recognizer(self, recognizer):
         """Set the voice recognizer setting."""

@@ -1,109 +1,67 @@
-import os
-from pathlib import Path
 import logging
 
 class RecognizerFactory:
-    """Factory class for creating recognizer instances"""
-    
+    """Factory class for creating recognizer instances.
+
+    The ONNX wav2vec2 models are now loaded and run by the
+    phonemation_backend server (managed as a subprocess by
+    BackendRecognizer).  Allosaurus and Rhubarb fallbacks have been
+    removed in favour of a single clean ONNX backend.
+    """
+
     @staticmethod
     def create_recognizer(recognizer_type, **kwargs):
         """
-        Create a recognizer instance based on the recognizer type
-        
+        Create a recognizer instance based on the recognizer type.
+
         Args:
-            recognizer_type (str): Type of recognizer to create ("onnx", "allosaurus", or "rhubarb")
+            recognizer_type (str): Type of recognizer to create ("onnx" or "backend")
             **kwargs: Additional arguments to pass to the recognizer constructor
-            
+
         Returns:
-            BaseRecognizer: An instance of the specified recognizer
-            
+            BackendRecognizer: An instance of the backend-based recognizer
+
         Raises:
             ValueError: If the recognizer type is not supported
-            ImportError: If the required dependencies are not installed
         """
         recognizer_type = recognizer_type.lower()
-        
-        if recognizer_type == "onnx":
-            from recognizer import ComboRecognizer
-            
-            # Get model paths from kwargs or use defaults
+
+        if recognizer_type in ("onnx", "backend"):
+            from backend_recognizer import BackendRecognizer
+
             phoneme_model_path = kwargs.get("phoneme_model_path", "")
             emotion_model_path = kwargs.get("emotion_model_path", "")
-            
+
             try:
-                return ComboRecognizer(
+                return BackendRecognizer(
                     phoneme_model_path=phoneme_model_path,
-                    emotion_model_path=emotion_model_path
+                    emotion_model_path=emotion_model_path,
                 )
             except Exception as e:
-                logging.error(f"Failed to create ONNX recognizer: {str(e)}")
-                # If ONNX fails, try to fall back to Allosaurus if available
-                try:
-                    logging.info("Falling back to Allosaurus recognizer")
-                    from recognizer import AllosaurusRecognizer
-                    allosaurus_recognizer = AllosaurusRecognizer()
-                    if hasattr(allosaurus_recognizer, "is_available") and allosaurus_recognizer.is_available():
-                        return allosaurus_recognizer
-                except Exception:
-                    pass
-                
-                # If Allosaurus also fails, try Rhubarb
-                try:
-                    logging.info("Falling back to Rhubarb recognizer")
-                    from recognizer import RhubarbRecognizer
-                    rhubarb_recognizer = RhubarbRecognizer()
-                    if hasattr(rhubarb_recognizer, "is_available") and rhubarb_recognizer.is_available():
-                        return rhubarb_recognizer
-                except Exception:
-                    pass
-                
-                # If all fallbacks fail, return the original ONNX recognizer (which will report as not available)
-                return ComboRecognizer(
-                    phoneme_model_path=phoneme_model_path,
-                    emotion_model_path=emotion_model_path
-                )
-            
-        elif recognizer_type == "allosaurus":
-            from recognizer import AllosaurusRecognizer
-            return AllosaurusRecognizer()
-            
-        elif recognizer_type == "rhubarb":
-            from recognizer import RhubarbRecognizer
-            return RhubarbRecognizer()
-            
+                logging.error(f"Failed to create backend recognizer: {str(e)}")
+                raise
+
         else:
-            raise ValueError(f"Unsupported recognizer type: {recognizer_type}")
-    
+            raise ValueError(
+                f"Unsupported recognizer type: {recognizer_type}. "
+                f"Only 'onnx' (backend subprocess) is supported."
+            )
+
     @staticmethod
     def get_available_recognizers():
         """
-        Get a list of available recognizer types on the current system
-        
+        Get a list of available recognizer types on the current system.
+
         Returns:
             list: List of available recognizer types
         """
         available_recognizers = []
-        
-        # Check for ONNX
+
+        # The backend needs onnxruntime and the server dependencies.
         try:
             import onnxruntime
             available_recognizers.append("onnx")
         except ImportError:
             logging.info("ONNX runtime not available")
-        
-        # Check for Allosaurus
-        try:
-            import allosaurus
-            available_recognizers.append("allosaurus")
-        except ImportError:
-            logging.info("Allosaurus not available")
-        
-        # Check for Rhubarb
-        try:
-            import utilities
-            if utilities.rhubarb_binaries_exists():
-                available_recognizers.append("rhubarb")
-        except Exception:
-            logging.info("Rhubarb not available")
-        
+
         return available_recognizers

@@ -1,0 +1,15 @@
+# Lower-bound pins to keep fresh installs reproducible while allowing patch updates.
+# pydantic>=2 is required because the API uses model_dump().
+numpy>=1.24
+PyYAML>=6.0
+soundfile>=0.12
+sounddevice>=0.4.6
+uvicorn>=0.27
+fastapi>=0.110
+starlette>=0.36
+huggingface_hub>=0.23
+tqdm>=4.66
+soxr>=0.3.7
+pydantic>=2.5
+python-multipart>=0.0.9
+appdirs>=1.4.4

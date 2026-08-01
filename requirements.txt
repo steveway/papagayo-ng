@@ -11,3 +11,10 @@ sounddevice
 requests
 huggingface-hub
 Nuitka
+# Backend server dependencies (phonemation_backend subprocess for ONNX recognition)
+uvicorn>=0.27
+fastapi>=0.110
+starlette>=0.36
+pydantic>=2.5
+python-multipart>=0.0.9
+tqdm>=4.66

@@ -1,0 +1,38 @@
+[
+    {
+        "type": "scrolloptions",
+        "title": "Audio Host API",
+        "desc": "Set the audio host API",
+        "section": "audio",
+        "key": "host_api"
+    },
+    {
+        "type": "scrolloptions",
+        "title": "Audio Input Device",
+        "desc": "Set the audio input device",
+        "section": "audio",
+        "key": "input_device"
+    },
+    {
+        "type": "scrolloptions",
+        "title": "Audio Output Device",
+        "desc": "Set the audio output device",
+        "section": "audio",
+        "key": "output_device"
+    },
+    {
+        "type": "options",
+        "title": "VAD Type",
+        "desc": "Set the VAD type",
+        "section": "audio",
+        "key": "vad_mode",
+        "options": ["silero", "energy", "volume"]
+    },
+    {
+        "type": "numeric",
+        "title": "VAD Threshold",
+        "desc": "Set the VAD threshold",
+        "section": "audio",
+        "key": "threshold"
+    }
+]

@@ -1,0 +1,37 @@
+[
+    {
+        "type": "path",
+        "title": "Character Location",
+        "desc": "Select the path to the character",
+        "section": "general",
+        "key": "character_path"
+    },
+    {
+        "type": "path",
+        "title": "AI Cache Location",
+        "desc": "Select the path to the AI cache",
+        "section": "general",
+        "key": "ai_cache_path"
+    },
+    {
+        "type": "button",
+        "title": "Open AI Cache",
+        "desc": "Open the AI cache in a File Manager",
+        "section": "general",
+        "key": "open_ai_cache"
+    },
+    {
+        "type": "password",
+        "title": "License Key",
+        "desc": "Enter your Gumroad license key",
+        "section": "general",
+        "key": "license_key"
+    },
+    {
+        "type": "numeric",
+        "title": "API Port",
+        "desc": "Select the port for the API",
+        "section": "general",
+        "key": "api_port"
+    }
+]

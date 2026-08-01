@@ -1,0 +1,33 @@
+{
+    "general": {
+        "character_path": "",
+        "license_key": "",
+        "open_ai_cache": "Open AI Cache",
+        "api_port": 8000,
+        "ai_cache_path": ""
+    },
+    "graphics": {
+        "fullscreen": 0,
+        "fps_limit": 60,
+        "width": 800,
+        "height": 600,
+        "bg_color": "#00ff00ff",
+        "char_scale": 1.0
+    },
+    "audio": {
+        "input_device": "",
+        "output_device": "",
+        "threshold": 0.05,
+        "vad_mode": "volume",
+        "host_api": ""
+    },
+    "ai": {
+        "phoneme_model": "",
+        "emotion_model": "",
+        "phoneme_set": "preston_blair",
+        "use_vad": 1,
+        "use_cuda": 1,
+        "vad_mode": 0,
+        "delete_ai_cache": "Delete AI Cache"
+    }
+}

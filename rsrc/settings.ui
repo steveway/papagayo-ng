@@ -693,94 +693,15 @@ border: transparent;</string>
              </widget>
             </item>
             <item>
-             <layout class="QGridLayout" name="allosaurus_controls">
-              <item row="2" column="0">
-               <widget class="QLabel" name="label">
-                <property name="text">
-                 <string>Emission Multiplier</string>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="1">
-               <widget class="QLineEdit" name="model_name">
-                <property name="text">
-                 <string notr="true">latest</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="1">
-               <widget class="QDoubleSpinBox" name="voice_emission_value">
-                <property name="minimum">
-                 <double>0.010000000000000</double>
-                </property>
-                <property name="maximum">
-                 <double>5.000000000000000</double>
-                </property>
-                <property name="singleStep">
-                 <double>0.100000000000000</double>
-                </property>
-                <property name="stepType">
-                 <enum>QAbstractSpinBox::StepType::DefaultStepType</enum>
-                </property>
-                <property name="value">
-                 <double>1.000000000000000</double>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="0">
-               <widget class="QLabel" name="label_9">
-                <property name="text">
-                 <string>Model Name</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="0" colspan="2">
-               <widget class="QLabel" name="label_11">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>16777215</width>
-                  <height>13</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Allosaurus Settings</string>
-                </property>
-                <property name="scaledContents">
-                 <bool>false</bool>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignmentFlag::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="1">
-               <widget class="QLineEdit" name="lang_id_value">
-                <property name="text">
-                 <string notr="true">eng</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="0">
-               <widget class="QLabel" name="label_2">
-                <property name="text">
-                 <string>LanguageID</string>
-                </property>
-               </widget>
-              </item>
-              <item row="4" column="0">
+             <layout class="QGridLayout" name="phoneme_distribution_controls">
+              <item row="0" column="0">
                <widget class="QLabel" name="label_4">
                 <property name="text">
                  <string>Phoneme Distribution:</string>
                 </property>
                </widget>
               </item>
-              <item row="4" column="1">
+              <item row="0" column="1">
                <widget class="QComboBox" name="distribution_mode">
                 <item>
                  <property name="text">
@@ -867,20 +788,6 @@ border: transparent;</string>
        <property name="verticalSpacing">
         <number>75</number>
        </property>
-       <item row="0" column="0">
-        <widget class="QPushButton" name="ffmpeg_delete_button">
-         <property name="text">
-          <string>Remove FFMpeg</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QPushButton" name="allo_delete_button">
-         <property name="text">
-          <string>Remove AI Model</string>
-         </property>
-        </widget>
-       </item>
        <item row="3" column="0">
         <layout class="QGridLayout" name="gridLayout_5" rowstretch="0,0">
          <item row="1" column="1">
@@ -936,13 +843,6 @@ border: transparent;</string>
           </widget>
          </item>
         </layout>
-       </item>
-       <item row="2" column="0">
-        <widget class="QPushButton" name="rhubarb_delete_button">
-         <property name="text">
-          <string>Remove Rhubarb</string>
-         </property>
-        </widget>
        </item>
       </layout>
      </widget>

@@ -30,9 +30,8 @@ import os
 import logging
 from Rhubarb import Rhubarb, RhubarbTimeoutException
 from ai_output_process import get_best_fitting_output_from_list
-from model_downloader import ensure_model_exists
 
-from LipsyncObject import LipSyncObject
+from LipsyncObject import LipSyncObject, strip_symbols
 
 try:
     import configparser
@@ -60,9 +59,7 @@ else:
     # else:
     #     import SoundPlayer as SoundPlayer
 
-strip_symbols = '.,!?;-/()"'
-strip_symbols += '\N{INVERTED QUESTION MARK}'
-strip_symbols += "'"
+    # strip_symbols is now imported from LipsyncObject (see top of file).
 
 
 ###############################################################
@@ -429,133 +426,52 @@ class LipsyncDoc:
         if str(self.settings.get_voice_recognition()).lower() == "true" or manual_invoke:
             recognizer_type = self.settings.get_recognizer()
             distribution_mode = self.settings.get_distribution_mode()
-            
+
             try:
-                # Create the appropriate recognizer using the factory
-                if recognizer_type.lower() == "onnx":
-                    model_path = self.settings.get_onnx_model()
-                    model_dir = ensure_model_exists(model_path, model_type="phoneme")
-                    logging.info(f"Using ONNX model: {model_dir}")
-                    phoneme_recognizer = RecognizerFactory.create_recognizer("onnx", phoneme_model_path=model_dir)
+                # Create the backend-based recognizer (ONNX wav2vec2 via subprocess).
+                # The model_id from settings (e.g. "steveway/XLS-R-english-phoneme_onnx")
+                # is resolved to a local path via the backend's model management API.
+                model_id = self.settings.get_onnx_model()
+                logging.info(f"Ensuring ONNX model is available: {model_id}")
+
+                # First create the recognizer (starts the backend subprocess),
+                # then ensure the model is downloaded via the backend's API.
+                phoneme_recognizer = RecognizerFactory.create_recognizer("onnx")
+                model_dir = phoneme_recognizer.ensure_model(model_id, model_type="phoneme")
+                if not model_dir:
+                    raise FileNotFoundError(
+                        f"Could not download or locate ONNX model '{model_id}'. "
+                        f"Check your network connection and HuggingFace access."
+                    )
+                logging.info(f"Using ONNX model: {model_dir}")
+
+                # Load the model into the backend and run recognition.
+                if not phoneme_recognizer._start_backend_with_models(model_dir):
+                    raise RuntimeError(f"Failed to load model {model_dir} into backend")
+
+                # Predict phonemes — the backend already returns CMU-39 phonemes
+                # with timing information (start/duration in seconds).
+                phoneme_results = phoneme_recognizer.predict(self.soundPath, "phoneme")
+
+                if phoneme_results and isinstance(phoneme_results, list) and len(phoneme_results) > 0:
+                    phonemes = [p["phoneme"] for p in phoneme_results if p.get("phoneme") is not None]
                 else:
-                    # For Allosaurus or Rhubarb
-                    phoneme_recognizer = RecognizerFactory.create_recognizer(recognizer_type.lower())
-                
-                # Process the audio file with the selected recognizer
-                if recognizer_type.lower() == "allosaurus":
-                    # For Allosaurus, we get a list of phoneme dictionaries with timing
-                    phoneme_results = phoneme_recognizer.predict(self.soundPath)
-                    
-                    # Extract phonemes and create time list
-                    phonemes = [p["phoneme"] for p in phoneme_results]
-                    time_list = []
-                    prev_start = 0
-                    for p in phoneme_results:
-                        time_list.append(p["start"] - prev_start)
-                        prev_start = p["start"]
-                    time_list.append(self.soundDuration - prev_start)
-                    
-                    # Find peaks for word boundaries
-                    if distribution_mode == "peaks":
-                        peaks = self.get_level_peaks(time_list)
-                        fitted_peaks = []
-                        if peaks:
-                            for peak in peaks:
-                                # Make sure peak is a valid index in time_list
-                                if peak < len(time_list):
-                                    # For the first peak, use frame 0
-                                    if peak == 0:
-                                        fitted_peaks.append(0)
-                                    # For other peaks, use the corresponding phoneme start time
-                                    elif peak - 1 < len(phoneme_results):
-                                        frame = int(round(phoneme_results[peak - 1]["start"] * self.fps))
-                                        fitted_peaks.append(frame)
-                        else:
-                            fitted_peaks.append(0)
-                        fitted_peaks.append(int(round(self.soundDuration)))
-                        fitted_peaks = list(set(fitted_peaks))
-                        fitted_peaks.sort()
-                    else:
-                        fitted_peaks = [0, int(round(self.soundDuration))]
-                    
-                elif recognizer_type.lower() == "rhubarb":
-                    # For Rhubarb, we get a list of phoneme dictionaries with timing
-                    phoneme_results = phoneme_recognizer.predict(self.soundPath)
-                    
-                    # Extract phonemes
-                    phonemes = [p["phoneme"] for p in phoneme_results]
-                    
-                    # Find word boundaries based on timing
-                    if distribution_mode == "peaks":
-                        # Find potential word boundaries (silence or pauses)
-                        fitted_peaks = [0]  # Start with frame 0
-                        for i in range(1, len(phoneme_results)):
-                            # If there's a gap between phonemes or a rest phoneme, consider it a word boundary
-                            if (phoneme_results[i]["start"] - (phoneme_results[i-1]["start"] + phoneme_results[i-1]["duration"]) > 0.1 or
-                                phoneme_results[i-1]["phoneme"] == "rest"):
-                                frame = int(round(phoneme_results[i]["start"] * self.fps))
-                                fitted_peaks.append(frame)
-                        fitted_peaks.append(int(round(self.soundDuration)))
-                        fitted_peaks = list(set(fitted_peaks))
-                        fitted_peaks.sort()
-                    else:
-                        fitted_peaks = [0, int(round(self.soundDuration))]
-                    
-                else:  # ONNX
-                    try:
-                        # Load IPA to CMU conversion dictionary
-                        ipa_convert = json.load(open(path_utils.get_file_inside_exe("ipa_cmu.json"), encoding="utf8"))
-                        
-                        # Predict phonemes
-                        phoneme_results = phoneme_recognizer.predict(self.soundPath, "phoneme")
-                        
-                        # Extract just the phoneme text from the results
-                        if phoneme_results and isinstance(phoneme_results, list) and len(phoneme_results) > 0:
-                            # Check if we have dictionary objects with phoneme keys
-                            if isinstance(phoneme_results[0], dict) and "phoneme" in phoneme_results[0]:
-                                # Extract just the phoneme values
-                                phonemes = [p["phoneme"] for p in phoneme_results]
-                                
-                                # Convert phonemes if needed
-                                if any(not isinstance(p, str) or p.isupper() for p in phonemes):
-                                    # Already converted to CMU format
-                                    pass
-                                else:
-                                    # Convert from IPA to CMU format
-                                    phonemes = get_best_fitting_output_from_list(phonemes, ipa_convert)
-                            else:
-                                # If we just have a list of phonemes, use it directly
-                                phonemes = phoneme_results
-                                # Convert from IPA to CMU format if needed
-                                if not any(p.isupper() for p in phonemes if isinstance(p, str)):
-                                    phonemes = get_best_fitting_output_from_list(phonemes, ipa_convert)
-                            
-                            # Filter out None values
-                            phonemes = [p for p in phonemes if p is not None]
-                        else:
-                            logging.warning("ONNX model returned no phonemes")
-                            phonemes = []
-                        
-                        # Find peaks for word boundaries
-                        if distribution_mode == "peaks":
-                            peaks = find_peaks(self.sound.soundfile, distance=2048)
-                            peak_divisor = len(self.sound.soundfile) / (self.soundDuration)
-                            fitted_peaks = peaks[0] / peak_divisor
-                            fitted_peaks = fitted_peaks.round().astype(int)
-                            fitted_peaks = list(fitted_peaks)
-                            fitted_peaks.append(int(round(self.soundDuration)))
-                            fitted_peaks.append(0)
-                            fitted_peaks = list(set(fitted_peaks))
-                            fitted_peaks.sort()
-                        else:
-                            fitted_peaks = [0, int(round(self.soundDuration))]
-                    except Exception as e:
-                        logging.error(f"Error processing ONNX model output: {str(e)}")
-                        import traceback
-                        logging.error(traceback.format_exc())
-                        # Fall back to a simple distribution
-                        phonemes = []
-                        fitted_peaks = [0, int(round(self.soundDuration))]
+                    logging.warning("Recognizer returned no phonemes")
+                    phonemes = []
+
+                # Find peaks for word boundaries
+                if distribution_mode == "peaks":
+                    peaks = find_peaks(self.sound.soundfile, distance=2048)
+                    peak_divisor = len(self.sound.soundfile) / (self.soundDuration)
+                    fitted_peaks = peaks[0] / peak_divisor
+                    fitted_peaks = fitted_peaks.round().astype(int)
+                    fitted_peaks = list(fitted_peaks)
+                    fitted_peaks.append(int(round(self.soundDuration)))
+                    fitted_peaks.append(0)
+                    fitted_peaks = list(set(fitted_peaks))
+                    fitted_peaks.sort()
+                else:
+                    fitted_peaks = [0, int(round(self.soundDuration))]
                 
                 logging.info(f"Auto-Recognized Phonemes: {phonemes}")
                 logging.info(f"Number of Phonemes: {len(phonemes)}")

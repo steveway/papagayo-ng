@@ -1,0 +1,51 @@
+[
+    {
+        "type": "scrolloptions",
+        "title": "Phoneme model",
+        "desc": "Set the phoneme model",
+        "section": "ai",
+        "key": "phoneme_model"
+    },
+    {
+        "type": "scrolloptions",
+        "title": "Emotion model",
+        "desc": "Set the emotion model",
+        "section": "ai",
+        "key": "emotion_model"
+    },
+    {
+        "type": "scrolloptions",
+        "title": "Phoneme Set",
+        "desc": "Set the phoneme set",
+        "section": "ai",
+        "key": "phoneme_set"
+    },
+    {
+        "type": "bool",
+        "title": "Use VAD",
+        "desc": "If activated uses Voice activation detection",
+        "section": "ai",
+        "key": "use_vad"
+    },
+    {
+        "type": "numeric",
+        "title": "VAD aggressiveness",
+        "desc": "Set its aggressiveness mode, which is an integer between 0 and 3. 0 is the least aggressive about filtering out non-speech, 3 is the most aggressive.",
+        "section": "ai",
+        "key": "vad_mode"
+    },
+    {
+        "type": "bool",
+        "title": "Use CUDA",
+        "desc": "If activated uses CUDA, if possible",
+        "section": "ai",
+        "key": "use_cuda"
+    },
+    {
+        "type": "button",
+        "title": "Delete AI Cache",
+        "desc": "Delete the AI cache",
+        "section": "ai",
+        "key": "delete_ai_cache"
+    }
+]

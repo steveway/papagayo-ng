@@ -20,16 +20,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import os
-import platform
-import shutil
 from functools import partial
 
 import PySide6.QtWidgets as QtWidgets
 from PySide6 import QtCore, QtGui
 from PySide6.QtCore import QFile, QThread, QObject, Signal, Qt
 from PySide6.QtUiTools import QUiLoader as uic
-import model_manager
-from model_manager import CustomTQDM
 
 import path_utils
 import utilities
@@ -45,52 +41,59 @@ class ProgressSignal(QObject):
 
 
 class OnnxDownloadThread(QThread):
-    progress_signal = Signal(int)  # Define as class attribute
-    finished_signal = Signal(str)  # Define as class attribute
-    
-    def __init__(self, parent, model_name, model_path):
+    """Downloads an ONNX model via the phonemation_backend REST API.
+
+    Runs in a background thread so the UI stays responsive.  Progress
+    is reported via *progress_signal* (0..100 int) and completion via
+    *finished_signal* (message string).
+    """
+
+    progress_signal = Signal(int)
+    finished_signal = Signal(str)
+
+    def __init__(self, parent, model_name, model_path=""):
         super().__init__(parent)
-        try:
-            self.model_manager = model_manager.ModelHandler()
-        except:
-            self.model_manager = model_manager.ModelHandler.get_instance()
         self.model_name = model_name
-        self.model_path = model_path
+        self.model_path = model_path  # kept for interface compat, unused
         self._is_running = False
-        self._is_paused = False
 
     def change_name_and_path(self, model_name, model_path):
         self.model_name = model_name
         self.model_path = model_path
 
     def stop(self):
-        print("Stopping download thread...")  # Debug print
+        print("Stopping download thread...")
         self._is_running = False
-        self.model_manager.stop_download()
         if self.isRunning():
             self.terminate()
             self.wait()
-        
+
     def run(self):
         self._is_running = True
         try:
-            CustomTQDM.set_signal(self)  # Set the signal at class level
-            CustomTQDM._last_progress = -1  # Reset progress
+            from backend_recognizer import BackendRecognizer
+
+            recognizer = BackendRecognizer()
+            if not self._is_running:
+                return
+
+            def on_progress(percent):
+                if self._is_running:
+                    self.progress_signal.emit(int(percent))
+
+            path = recognizer.download_model(self.model_name,
+                                             progress_callback=on_progress)
             if self._is_running:
-                self.model_manager.download_model(self.model_name, self.model_path)
-                if self._is_running:  # Only emit if not stopped
+                if path:
                     self.finished_signal.emit("Download complete")
+                else:
+                    self.finished_signal.emit("Download failed")
         except Exception as e:
-            print(f"Download error: {str(e)}")  # Debug print
-            if self._is_running:  # Only emit if not stopped
+            print(f"Download error: {str(e)}")
+            if self._is_running:
                 self.finished_signal.emit(f"Download failed: {str(e)}")
         finally:
             self._is_running = False
-            CustomTQDM.set_signal(None)  # Clear the signal
-
-    def toggle_pause(self):
-        self._is_paused = not self._is_paused
-        return self._is_paused
 
 class SettingsWindow:
     def __init__(self, progress_callback, status_bar_progress):
@@ -99,11 +102,6 @@ class SettingsWindow:
         self.ui_path = path_utils.get_resource_path("rsrc", "settings.ui")
         self.main_window = self.load_ui_widget(self.ui_path)
         self.settings_manager = SettingsManager.get_instance()
-
-        try:
-            self.model_manager = model_manager.ModelHandler()
-        except:
-            self.model_manager = model_manager.ModelHandler.get_instance()
 
         # Initialize download thread after main window is created
         self.download_thread = OnnxDownloadThread(self.main_window, "", "")
@@ -121,18 +119,45 @@ class SettingsWindow:
         return self.ui
 
     def download_onnx_model(self):
+        # Strip the download-status mark to get the raw model id.
         model_name = self.main_window.available_onnx_models.currentText()
-        model_path = os.path.join(utilities.get_app_data_path(), "onnx_models")
+        model_name = model_name.replace("[v] ", "").replace("[ ] ", "")
         self.status_bar_progress.show()
         self.status_bar_progress.setMaximum(100)
         self.status_bar_progress.setMinimum(0)
         self.status_bar_progress.setValue(0)
-        self.download_thread.change_name_and_path(model_name, model_path)
+        self.download_thread.change_name_and_path(model_name, "")
         self.download_thread.start()
 
     def onnx_complete(self, data):
         print(f"Download finished with message: {data}")
         self.status_bar_progress.hide()
+        # Refresh the model list so the downloaded status updates.
+        self._refresh_onnx_model_list()
+
+    def _refresh_onnx_model_list(self):
+        """Re-populate the ONNX model dropdown with current download status."""
+        try:
+            from backend_recognizer import BackendRecognizer
+            recognizer = BackendRecognizer()
+            models = recognizer.list_models("phoneme")
+        except Exception as e:
+            print(f"Could not refresh ONNX model list: {e}")
+            return
+
+        self._onnx_models = models
+        # Remember the current selection (by model id).
+        current_id = self.main_window.available_onnx_models.currentText()
+        current_id = current_id.replace("[v] ", "").replace("[ ] ", "")
+
+        self.main_window.available_onnx_models.clear()
+        select_index = 0
+        for i, m in enumerate(models):
+            mark = "[v] " if m["downloaded"] else "[ ] "
+            self.main_window.available_onnx_models.addItem(mark + m["id"])
+            if m["id"] == current_id:
+                select_index = i
+        self.main_window.available_onnx_models.setCurrentIndex(select_index)
 
     def update_progress(self, value):
         print(f"Progress update: {value}%")  # Debug print
@@ -170,49 +195,14 @@ class SettingsWindow:
         qt_url = QtCore.QUrl.fromLocalFile(utilities.get_app_data_path().as_posix())
         QtGui.QDesktopServices.openUrl(qt_url)
 
-    def delete_ffmpeg(self):
-        ffmpeg_binary = "ffmpeg.exe"
-        ffprobe_binary = "ffprobe.exe"
-        if platform.system() == "Darwin":
-            ffmpeg_binary = "ffmpeg"
-            ffprobe_binary = "ffprobe"
-        ffmpeg_path_old = os.path.join(utilities.get_main_dir(), ffmpeg_binary)
-        ffprobe_path_old = os.path.join(utilities.get_main_dir(), ffprobe_binary)
-        if os.path.exists(ffmpeg_path_old):
-            os.remove(ffmpeg_path_old)
-        if os.path.exists(ffprobe_path_old):
-            os.remove(ffprobe_path_old)
-        ffmpeg_path_new = os.path.join(utilities.get_app_data_path(), ffmpeg_binary)
-        ffprobe_path_new = os.path.join(utilities.get_app_data_path(), ffprobe_binary)
-        if os.path.exists(ffmpeg_path_new):
-            os.remove(ffmpeg_path_new)
-        if os.path.exists(ffprobe_path_new):
-            os.remove(ffprobe_path_new)
-
-    def delete_rhubarb(self):
-        rhubarb_path = os.path.join(utilities.get_app_data_path(), "rhubarb")
-        if os.path.exists(rhubarb_path):
-            shutil.rmtree(rhubarb_path)
-
-    def delete_ai_model(self):
-        allosaurus_model_path_old = os.path.join(utilities.get_main_dir(), "allosaurus_model")
-        allosaurus_model_path_new = os.path.join(utilities.get_app_data_path(), "allosaurus_model")
-        if os.path.exists(allosaurus_model_path_old):
-            shutil.rmtree(allosaurus_model_path_old)
-        if os.path.exists(allosaurus_model_path_new):
-            shutil.rmtree(allosaurus_model_path_new)
-
     def load_settings_to_gui(self):
         # Use the settings manager to get values with proper type conversion
         self.main_window.fps_value.setValue(self.settings_manager.get_fps())
-        self.main_window.lang_id_value.setText(self.settings_manager.get_allo_lang_id())
-        self.main_window.voice_emission_value.setValue(self.settings_manager.get_allo_emission())
         self.main_window.run_voice_recognition.setChecked(self.settings_manager.get_run_voice_recognition())
         self.main_window.app_data_path.setText(utilities.get_app_data_path().as_posix())
-        self.main_window.model_name.setText(self.settings_manager.get_allosaurus_model())
         self.main_window.app_data_path.home(True)
         
-        list_of_recognizers = ["Allosaurus", "Rhubarb", "ONNX"]
+        list_of_recognizers = ["ONNX"]
         self.main_window.selected_recognizer.addItems(list_of_recognizers)
         
         language_list = []
@@ -240,9 +230,31 @@ class SettingsWindow:
                                                                                            new_text_color)
                 color_button.setStyleSheet(style)
         
-        onnx_model_list = self.model_manager.get_model_list("phoneme")
+        # List available ONNX models via the backend's REST API.
+        # Models that are already downloaded are marked with a checkmark.
+        try:
+            from backend_recognizer import BackendRecognizer
+            recognizer = BackendRecognizer()
+            models = recognizer.list_models("phoneme")
+            onnx_model_list = []
+            for m in models:
+                mark = "[v] " if m["downloaded"] else "[ ] "
+                onnx_model_list.append(mark + m["id"])
+            # Store the raw model list for later use (download button, etc.)
+            self._onnx_models = models
+        except Exception as e:
+            print(f"Could not list ONNX models from backend: {e}")
+            onnx_model_list = []
+            self._onnx_models = []
         self.main_window.available_onnx_models.addItems(onnx_model_list)
-        self.main_window.available_onnx_models.setCurrentText(self.settings_manager.get_onnx_model())
+
+        # Select the currently configured model (match by id, ignoring the mark).
+        current_model = self.settings_manager.get_onnx_model()
+        for i in range(self.main_window.available_onnx_models.count()):
+            item_text = self.main_window.available_onnx_models.itemText(i)
+            if item_text.endswith(current_model):
+                self.main_window.available_onnx_models.setCurrentIndex(i)
+                break
         self.main_window.qss_path.setText(self.settings_manager.get_qss_file_path())
 
     def init_ui(self):
@@ -256,9 +268,6 @@ class SettingsWindow:
         self.main_window.voice_rec.clicked.connect(self.change_tab)
         self.main_window.delete_settings.clicked.connect(self.delete_settings)
         self.main_window.reset_colors.clicked.connect(self.on_reset_colors)
-        self.main_window.ffmpeg_delete_button.clicked.connect(self.delete_ffmpeg)
-        self.main_window.allo_delete_button.clicked.connect(self.delete_ai_model)
-        self.main_window.rhubarb_delete_button.clicked.connect(self.delete_rhubarb)
         self.main_window.download_onnx_model.clicked.connect(self.download_onnx_model)
         self.main_window.accepted.connect(self.accepted)
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
@@ -285,8 +294,6 @@ class SettingsWindow:
     def accepted(self, event=None):
         # Save all settings using the settings manager
         self.settings_manager.set_fps(self.main_window.fps_value.value())
-        self.settings_manager.set_allo_lang_id(self.main_window.lang_id_value.text())
-        self.settings_manager.set_allo_emission(self.main_window.voice_emission_value.value())
         self.settings_manager.set_run_voice_recognition(self.main_window.run_voice_recognition.isChecked())
         self.settings_manager.set_distribution_mode(self.main_window.distribution_mode.currentText().lower())
         self.settings_manager.set_qss_file_path(self.main_window.qss_path.text())
@@ -294,8 +301,10 @@ class SettingsWindow:
         self.settings_manager.set_rest_after_words(self.main_window.rest_after_words.isChecked())
         self.settings_manager.set_rest_after_phonemes(self.main_window.rest_after_phonemes.isChecked())
         self.settings_manager.set_language(self.main_window.ui_language.currentText())
-        self.settings_manager.set_allosaurus_model(self.main_window.model_name.text())
-        self.settings_manager.set_onnx_model(self.main_window.available_onnx_models.currentText())
+        # Strip the download-status mark from the model name before saving.
+        onnx_model_text = self.main_window.available_onnx_models.currentText()
+        onnx_model_id = onnx_model_text.replace("[v] ", "").replace("[ ] ", "")
+        self.settings_manager.set_onnx_model(onnx_model_id)
         
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
             if "Color" in color_button.text():

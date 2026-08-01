@@ -2,10 +2,17 @@ from PySide6 import QtCore
 from anytree import NodeMixin
 import anytree
 from pathlib import Path
+import importlib
+import logging
 import path_utils
 import utilities
 from PronunciationDialogQT import show_pronunciation_dialog
 from settings_manager import SettingsManager
+
+# Symbols stripped from words before dictionary/breakdown lookup.
+strip_symbols = '.,!?;-/()"'
+strip_symbols += '\N{INVERTED QUESTION MARK}'
+strip_symbols += "'"
 
 class LipSyncObject(NodeMixin):
     '''
@@ -323,6 +330,9 @@ class LipSyncObject(NodeMixin):
                     else:
                         word.start_frame = word.children[0].start_frame
                         word.end_frame = word.children[-1].end_frame + frames_per_phoneme - 1
+                if len(phrase.children) == 0:
+                    # phrase has no words (e.g. whitespace/punctuation-only line); skip it
+                    continue
                 phrase.start_frame = phrase.children[0].start_frame
                 phrase.end_frame = phrase.children[-1].end_frame
         elif self.object_type == "phrase":

@@ -85,7 +85,6 @@ class SoundPlayer:
 
         if len(samples):
             rms_amplitude = np.sqrt(np.mean(samples ** 2))
-            print(rms_amplitude)
             return rms_amplitude
         else:
             return 1

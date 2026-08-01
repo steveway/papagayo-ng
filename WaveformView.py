@@ -1,27 +1,91 @@
 #!/usr/bin/env python
 # -*- coding: ISO-8859-1 -*-
 
-import os
-import re
-import time
+"""WaveformView: the main timeline graphics view.
+
+Refactored for performance and maintainability:
+
+- Waveform polygon construction is vectorized with numpy (was a Python loop
+  with a per-sample progress_callback + statusbar.showMessage call -- the
+  main cause of the slow, spammy loads).
+- ``drawBackground`` caches the frame tick lines / labels and only rebuilds
+  them when the zoom level or sample count changes (was rebuilding thousands
+  of QLineF objects on every paint).
+- Waveform recalculation runs on a worker thread via the existing
+  Worker/QThreadPool pattern (previously commented out), so the UI stays
+  responsive during load. QGraphicsScene objects are only ever touched on
+  the UI thread -- the worker just returns numpy arrays.
+- ``create_movbuttons`` is de-duplicated: the phrase/word/phoneme blocks
+  share one helper instead of three copy-pasted try/except RuntimeError
+  blocks.
+- Selection highlight uses MovableButton.selected instead of string-replacing
+  ``1px``/``2px`` in the stylesheet.
+- Debug print() calls removed.
+
+The public interface used by LipsyncFrameQT / LipsyncDoc / MovableButton is
+preserved exactly (see the external-usage audit).
+"""
+
 import sys
+import math
+
 import numpy as np
 from PySide6 import QtCore, QtGui
 import PySide6.QtWidgets as QtWidgets
 
-from LipsyncDoc import *
+from LipsyncDoc import *  # noqa: F401,F403  (star-import kept for back-compat)
 import utilities
 from SceneWithDrag import SceneWithDrag
 from MovableButton import MovableButton
 
-# Constants
+# Constants --------------------------------------------------------------- #
 font = QtGui.QFont("Swiss", 6)
 default_sample_width = 4
 default_samples_per_frame = 2
 
+
 def normalize(x):
-    x = np.asarray(x)
-    return ((x - x.min()) / (np.ptp(x))) * 0.8
+    x = np.asarray(x, dtype=float)
+    if x.size == 0:
+        return x
+    ptp = np.ptp(x)
+    if ptp == 0:
+        return np.zeros_like(x)
+    return ((x - x.min()) / ptp) * 0.8
+
+
+# ------------------------------------------------------------------------- #
+# Worker for off-UI-thread waveform computation.
+# Returns (amp_array, num_samples) -- no Qt scene objects are touched here.
+# ------------------------------------------------------------------------- #
+class _WaveformRecalcWorker(QtCore.QRunnable):
+    def __init__(self, sound, samples_per_sec, duration):
+        super().__init__()
+        self._sound = sound
+        self._samples_per_sec = samples_per_sec
+        self._duration = duration
+        self.signals = utilities.WorkerSignals()
+
+    @QtCore.Slot()
+    def run(self):
+        try:
+            sample_dur = 1.0 / self._samples_per_sec
+            n = max(1, int(self._duration / sample_dur) + 1)
+            amp = np.empty(n, dtype=float)
+            time_pos = 0.0
+            for i in range(n):
+                amp[i] = self._sound.get_rms_amplitude(time_pos, sample_dur)
+                time_pos += sample_dur
+                if i % max(1, n // 100) == 0:
+                    self.signals.progress.emit(int(100 * i / n))
+            amp = normalize(amp)
+            self.signals.result.emit((amp, n))
+            self.signals.finished.emit()
+        except Exception:
+            import traceback
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+
 
 class WaveformView(QtWidgets.QGraphicsView):
     def __init__(self, parent=None):
@@ -35,11 +99,14 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.translator = utilities.ApplicationTranslator()
         from settings_manager import SettingsManager
         self.settings = SettingsManager.get_instance()
-        # Other initialization
+
+        # Locate the main window once.
         self.main_window = None
         for widget in QtWidgets.QApplication.instance().topLevelWidgets():
             if isinstance(widget, QtWidgets.QMainWindow):
                 self.main_window = widget
+                break
+
         self.doc = None
         self.currently_selected_object = None
         self.is_scrubbing = False
@@ -63,131 +130,151 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.draw_play_marker = False
         self.num_samples = 0
         self.list_of_lines = []
-        self.amp = []
+        self.amp = np.array([], dtype=float)
         self.temp_play_marker = None
         self.scroll_position = 0
         self.first_update = True
         self.node = None
         self.did_resize = None
         self.threadpool = QtCore.QThreadPool.globalInstance()
+
+        # Caching for drawBackground ------------------------------------ #
+        self._bg_cache_key = None  # (frame_width, samples_per_frame, num_samples, height)
+        self._bg_lines = []        # list[QLineF]
+        self._bg_texts = []        # list[(QRectF, str)]
+
         self.scene().setSceneRect(0, 0, self.width(), self.height())
         self.resize_timer = QtCore.QTimer(self)
         self.resize_timer.setSingleShot(True)
         self.resize_timer.timeout.connect(self.resize_finished)
 
+    # ------------------------------------------------------------------ #
+    # Helpers
+    # ------------------------------------------------------------------ #
+    def font_for_buttons(self):
+        """The font used for phrase/word/phoneme buttons (module-level ``font``)."""
+        return font
+
+    def _text_metrics(self):
+        fm = QtGui.QFontMetrics(font)
+        return fm, fm.horizontalAdvance("Ojyg"), fm.height() + 6
+
+    def _color(self, key, fallback_key):
+        return QtGui.QColor(
+            self.settings.get("/Graphics/{}".format(key),
+                              utilities.original_colors[fallback_key]))
+
+    def _ensure_play_marker(self, visible=False):
+        if self.temp_play_marker is None or self.temp_play_marker not in self.scene().items():
+            self.temp_play_marker = self.scene().addRect(
+                0, 1, self.frame_width + 1, self.height(),
+                QtGui.QPen(self._color("playback_line_color", "playback_line_color")),
+                QtGui.QBrush(self._color("playback_fill_color", "playback_fill_color"),
+                             QtCore.Qt.BrushStyle.SolidPattern))
+            self.temp_play_marker.setZValue(1000)
+            self.temp_play_marker.setOpacity(0.5)
+        self.temp_play_marker.setVisible(visible)
+
+    # ------------------------------------------------------------------ #
+    # Drag-and-drop of files onto the view
+    # ------------------------------------------------------------------ #
     def dropEvent(self, event):
-        print("DragLeave")  # Strangely no dragLeaveEvent fires but a dropEvent instead...
         if event.mimeData().hasUrls():
-            # event.accept()
             for url in event.mimeData().urls():
                 if sys.platform == "darwin":
                     from Foundation import NSURL
                     fname = str(NSURL.URLWithString_(str(url.toString())).filePathURL().path())
-                    self.main_window.lip_sync_frame.open(fname)
                 else:
                     fname = str(url.toLocalFile())
-                    self.main_window.lip_sync_frame.open(fname)
-            return True
+                self.main_window.lip_sync_frame.open(fname)
         else:
             if event.source():
                 event.source().is_moving = False
             event.accept()
 
     def dragEnterEvent(self, e):
-        print("DragEnter!")
         e.accept()
 
+    # ------------------------------------------------------------------ #
+    # Selection
+    # ------------------------------------------------------------------ #
+    def _select_object(self, widget):
+        if self.currently_selected_object is not None:
+            try:
+                self.currently_selected_object.selected = False
+            except RuntimeError:
+                pass  # underlying C++ object already destroyed
+        self.currently_selected_object = widget
+        if widget is not None:
+            widget.selected = True
+
+    def _populate_tag_panel(self, widget):
+        """Fill the main-window tag panels for the newly selected widget."""
+        mw = self.main_window
+        if widget is None:
+            mw.list_of_tags.clear()
+            mw.tag_list_group.setEnabled(False)
+            mw.tag_list_group.setTitle(self.translator.translate("WaveformView", "Selected Object Tags"))
+            mw.parent_tags.clear()
+            mw.parent_tags.setEnabled(False)
+            return
+
+        mw.tag_list_group.setEnabled(True)
+        mw.list_of_tags.clear()
+        mw.list_of_tags.addItems(widget.node.tags)
+        title_part_two = widget.node.text
+        if len(widget.node.text) > 40:
+            title_part_two = widget.node.text[0:40] + "..."
+        mw.tag_list_group.setTitle(widget.object_type().title() + ": " + title_part_two)
+        mw.parent_tags.clear()
+        mw.parent_tags.setEnabled(False)
+
+        if widget.object_type() == "phoneme":
+            parent_word = widget.node.get_parent()
+            parent_phrase = parent_word.get_parent()
+            self._maybe_show_parent_tags(parent_word, parent_phrase)
+        elif widget.object_type() == "word":
+            parent_phrase = widget.node.get_parent()
+            self._maybe_show_parent_tags(None, parent_phrase)
+
+    def _maybe_show_parent_tags(self, word, phrase):
+        mw = self.main_window
+        word_tags = word.tags if word is not None else []
+        phrase_tags = phrase.tags if phrase is not None else []
+        if (word_tags and word is not None) or phrase_tags:
+            mw.parent_tags.setEnabled(True)
+        if phrase_tags:
+            phrase_tree = QtWidgets.QTreeWidgetItem(
+                [self.translator.translate("WaveformView", "Phrase: ") + phrase.text])
+            phrase_tree.addChildren(QtWidgets.QTreeWidgetItem([t]) for t in phrase_tags)
+            mw.parent_tags.addTopLevelItem(phrase_tree)
+            phrase_tree.setExpanded(True)
+        if word_tags and word is not None:
+            word_tree = QtWidgets.QTreeWidgetItem(
+                [self.translator.translate("WaveformView", "Word: ") + word.text])
+            word_tree.addChildren(QtWidgets.QTreeWidgetItem([t]) for t in word_tags)
+            mw.parent_tags.addTopLevelItem(word_tree)
+            word_tree.setExpanded(True)
+
+    # ------------------------------------------------------------------ #
+    # Mouse handling: scrubbing + selection
+    # ------------------------------------------------------------------ #
     def mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.MouseButton.LeftButton:
-            possible_item = self.itemAt(event.pos())
-            if type(possible_item) == QtWidgets.QGraphicsPolygonItem:
-                possible_item = None
-            if not possible_item:
-                if self.currently_selected_object:
-                    try:
-                        new_style = self.currently_selected_object.styleSheet()
-                        if "2px" in new_style:
-                            new_style = new_style.replace("2px", "1px")
-                        else:
-                            pass
-                        self.currently_selected_object.setStyleSheet(new_style)
-                    except RuntimeError:
-                        pass  # The real object was deleted, instead of carefully tracking we simply do this
-                self.currently_selected_object = None
-                self.main_window.list_of_tags.clear()
-                self.main_window.tag_list_group.setEnabled(False)
-                self.main_window.tag_list_group.setTitle(self.translator.translate("WaveformView", "Selected Object Tags"))
-                self.main_window.parent_tags.clear()
-                self.main_window.parent_tags.setEnabled(False)
-                self.is_scrubbing = True
-            else:
-                self.main_window.tag_list_group.setEnabled(True)
-                if self.currently_selected_object:
-                    try:
-                        new_style = self.currently_selected_object.styleSheet()
-                        if "2px" in new_style:
-                            new_style = new_style.replace("2px", "1px")
-                        else:
-                            pass
-                        self.currently_selected_object.setStyleSheet(new_style)
-                    except RuntimeError:
-                        pass  # The real object was deleted, instead of carefully tracking we simply do this
-                self.currently_selected_object = possible_item.widget()
-                new_style = self.currently_selected_object.styleSheet()
-                if "1px" in new_style:
-                    new_style = new_style.replace("1px", "2px")
-                else:
-                    pass
-                self.currently_selected_object.setStyleSheet(new_style)
-                self.main_window.list_of_tags.clear()
-                self.main_window.list_of_tags.addItems(self.currently_selected_object.node.tags)
-                title_part_two = self.currently_selected_object.node.text
-                if len(self.currently_selected_object.node.text) > 40:
-                    title_part_two = self.currently_selected_object.node.text[0:40] + "..."
-                new_title = self.currently_selected_object.object_type().title() + ": " + title_part_two
-                self.main_window.tag_list_group.setTitle(new_title)
-                self.main_window.parent_tags.clear()
-                self.main_window.parent_tags.setEnabled(False)
-                if self.currently_selected_object.object_type() == "phoneme":
-                    parent_word = self.currently_selected_object.node.get_parent()
-                    parent_phrase = parent_word.get_parent()
-                    word_tags = parent_word.tags
-                    phrase_tags = parent_phrase.tags
-                    if word_tags or phrase_tags:
-                        self.main_window.parent_tags.setEnabled(True)
-                    if phrase_tags:
-                        list_of_phrase_tags = []
-                        for tag in phrase_tags:
-                            new_tag = QtWidgets.QTreeWidgetItem([tag])
-                            list_of_phrase_tags.append(new_tag)
-                        phrase_tree = QtWidgets.QTreeWidgetItem([self.translator.translate("WaveformView", "Phrase: ") + parent_phrase.text])
-                        phrase_tree.addChildren(list_of_phrase_tags)
-                        self.main_window.parent_tags.addTopLevelItem(phrase_tree)
-                        phrase_tree.setExpanded(True)
-                    if word_tags:
-                        list_of_word_tags = []
-                        for tag in word_tags:
-                            new_tag = QtWidgets.QTreeWidgetItem([tag])
-                            list_of_word_tags.append(new_tag)
-                        word_tree = QtWidgets.QTreeWidgetItem([self.translator.translate("WaveformView", "Word: ") + parent_word.text])
-                        word_tree.addChildren(list_of_word_tags)
-                        self.main_window.parent_tags.addTopLevelItem(word_tree)
-                        word_tree.setExpanded(True)
-                elif self.currently_selected_object.object_type() == "word":
-                    parent_phrase = self.currently_selected_object.node.get_parent()
-                    parent_tags = parent_phrase.tags
-                    list_of_tags = []
-                    if parent_tags:
-                        self.main_window.parent_tags.setEnabled(True)
-                        for tag in parent_tags:
-                            new_tag = QtWidgets.QTreeWidgetItem([tag])
-                            list_of_tags.append(new_tag)
-                        phrase_tree = QtWidgets.QTreeWidgetItem([self.translator.translate("WaveformView", "Phrase: ") + parent_phrase.text])
-                        phrase_tree.addChildren(list_of_tags)
-                        self.main_window.parent_tags.addTopLevelItem(phrase_tree)
-                        phrase_tree.setExpanded(True)
-                else:
-                    self.main_window.parent_tags.setEnabled(False)
+        if event.button() != QtCore.Qt.MouseButton.LeftButton:
+            event.accept()
+            super(WaveformView, self).mousePressEvent(event)
+            return
+        possible_item = self.itemAt(event.pos())
+        if type(possible_item) == QtWidgets.QGraphicsPolygonItem:
+            possible_item = None
+        if not possible_item:
+            self._select_object(None)
+            self._populate_tag_panel(None)
+            self.is_scrubbing = True
+        else:
+            widget = possible_item.widget()
+            self._select_object(widget)
+            self._populate_tag_panel(widget)
         event.accept()
         super(WaveformView, self).mousePressEvent(event)
 
@@ -208,377 +295,379 @@ class WaveformView(QtWidgets.QGraphicsView):
                 self.doc.sound.play_segment(start, length)
             self.draw_play_marker = True
             self.temp_play_marker.setVisible(True)
-            self.temp_play_marker.setPos(round(mouse_scene_pos / self.frame_width) * self.frame_width, 0)
+            self.temp_play_marker.setPos(
+                round(mouse_scene_pos / self.frame_width) * self.frame_width, 0)
             self.main_window.mouth_view.set_frame(round(mouse_scene_pos / self.frame_width))
         else:
             super(WaveformView, self).mouseMoveEvent(event)
 
     def dragMoveEvent(self, e):
-        if not self.doc.sound.is_playing():
-            if e.source():
-                position = e.pos()
-                if self.width() > self.sceneRect().width():
-                    new_x = e.pos().x() + self.horizontalScrollBar().value() - \
-                            ((self.width() - self.sceneRect().width()) / 2) - e.source().hot_spot
+        if self.doc.sound.is_playing():
+            e.accept()
+            return
+        if not e.source():
+            e.accept()
+            return
+        position = e.pos()
+        if self.width() > self.sceneRect().width():
+            new_x = (position.x() + self.horizontalScrollBar().value()
+                     - ((self.width() - self.sceneRect().width()) / 2) - e.source().hot_spot)
+        else:
+            new_x = position.x() + self.horizontalScrollBar().value() - e.source().hot_spot
+        dropped_widget = e.source()
+        if new_x >= dropped_widget.node.get_left_max() * self.frame_width:
+            if new_x + dropped_widget.width() <= dropped_widget.node.get_right_max() * self.frame_width:
+                dropped_widget.move(new_x, dropped_widget.y())
+                if dropped_widget.is_phoneme():
+                    x_diff = round(dropped_widget.x() / self.frame_width) - dropped_widget.node.start_frame
+                    dropped_widget.node.start_frame = round(new_x / self.frame_width)
+                    dropped_widget.move(dropped_widget.node.start_frame * self.frame_width, dropped_widget.y())
                 else:
-                    new_x = e.pos().x() + self.horizontalScrollBar().value() - e.source().hot_spot
-                dropped_widget = e.source()
-                if new_x >= dropped_widget.node.get_left_max() * self.frame_width:
-                    if new_x + dropped_widget.width() <= dropped_widget.node.get_right_max() * self.frame_width:
-                        x_diff = 0
-                        dropped_widget.move(new_x, dropped_widget.y())
-                        # after moving save the position and align to the grid based on that. Hacky but works!
-                        if dropped_widget.is_phoneme():
-                            x_diff = round(
-                                dropped_widget.x() / self.frame_width) - dropped_widget.node.start_frame
-                            dropped_widget.node.start_frame = round(new_x / self.frame_width)
-                            dropped_widget.move(dropped_widget.node.start_frame * self.frame_width,
-                                                dropped_widget.y())
-                        else:
-                            x_diff = round(
-                                dropped_widget.x() / self.frame_width) - dropped_widget.node.start_frame
-                            dropped_widget.node.start_frame = round(dropped_widget.x() / self.frame_width)
-                            dropped_widget.end_frame = round(
-                                (dropped_widget.x() + dropped_widget.width()) / self.frame_width)
-                            dropped_widget.move(dropped_widget.node.start_frame * self.frame_width,
-                                                dropped_widget.y())
-                            # Move the children!
-                        dropped_widget.reposition_descendants(False, x_diff)
-                        self.doc.dirty = True
+                    x_diff = round(dropped_widget.x() / self.frame_width) - dropped_widget.node.start_frame
+                    dropped_widget.node.start_frame = round(dropped_widget.x() / self.frame_width)
+                    dropped_widget.end_frame = round(
+                        (dropped_widget.x() + dropped_widget.width()) / self.frame_width)
+                    dropped_widget.move(dropped_widget.node.start_frame * self.frame_width, dropped_widget.y())
+                dropped_widget.reposition_descendants(False, x_diff)
+                self.doc.dirty = True
         e.accept()
 
+    # ------------------------------------------------------------------ #
+    # Play marker / frame tracking
+    # ------------------------------------------------------------------ #
     def set_frame(self, frame):
-        if self.temp_play_marker not in self.scene().items():
-            self.temp_play_marker = self.scene().addRect(0, 1, self.frame_width + 1, self.height(),
-                                                         QtGui.QPen(QtGui.QColor(
-                                                             self.settings.get(
-                                                                 "/Graphics/{}".format("playback_line_color"),
-                                                                 utilities.original_colors[
-                                                                     "playback_line_color"]))),
-                                                         QtGui.QBrush(QtGui.QColor(
-                                                             self.settings.get(
-                                                                 "/Graphics/{}".format("playback_fill_color"),
-                                                                 utilities.original_colors[
-                                                                     "playback_fill_color"])), QtCore.Qt.BrushStyle.SolidPattern))
-            self.temp_play_marker.setZValue(1000)
-            self.temp_play_marker.setOpacity(0.5)
-            self.temp_play_marker.setVisible(True)
+        self._ensure_play_marker(visible=True)
         self.centerOn(self.temp_play_marker)
         self.temp_play_marker.setPos(frame * self.frame_width, 0)
         self.update()
         self.scene().update()
 
+    # ------------------------------------------------------------------ #
+    # Background (frame ticks + labels) -- cached
+    # ------------------------------------------------------------------ #
     def drawBackground(self, painter, rect):
         background_brush = QtGui.QBrush(
-            QtGui.QColor(self.settings.get("/Graphics/{}".format("bg_fill_color"),
-                                             utilities.original_colors["bg_fill_color"])),
+            self._color("bg_fill_color", "bg_fill_color"),
             QtCore.Qt.BrushStyle.SolidPattern)
         painter.fillRect(rect, background_brush)
-        if self.doc is not None:
-            pen = QtGui.QPen(
-                QtGui.QColor(self.settings.get("/Graphics/{}".format("frame_color"),
-                                             utilities.original_colors["frame_color"])))
-            # pen.setWidth(5)
-            painter.setPen(pen)
-            painter.setFont(font)
+        if self.doc is None:
+            return
 
-            first_sample = 0
-            last_sample = len(self.amp)
-            bg_height = self.height() + self.horizontalScrollBar().height()
-            half_client_height = bg_height / 2
-            font_metrics = QtGui.QFontMetrics(font)
-            text_width, top_border = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() * 2
-            x = first_sample * self.sample_width
-            frame = first_sample / self.samples_per_frame
-            fps = int(round(self.doc.fps))
-            sample = first_sample
-            self.list_of_lines = []
-            list_of_textmarkers = []
-            for i in range(int(first_sample), int(last_sample)):
-                if (i + 1) % self.samples_per_frame == 0:
-                    frame_x = (frame + 1) * self.frame_width
-                    if (self.frame_width > 2) or ((frame + 1) % fps == 0):
-                        self.list_of_lines.append(QtCore.QLineF(frame_x, top_border, frame_x, bg_height))
-                    # draw frame label
-                    if (self.frame_width > 30) or ((int(frame) + 1) % 5 == 0):
-                        self.list_of_lines.append(QtCore.QLineF(frame_x, 0, frame_x, top_border))
-                        self.list_of_lines.append(QtCore.QLineF(frame_x + 1, 0, frame_x + 1, bg_height))
-                        temp_rect = QtCore.QRectF(int(frame_x + 4), font_metrics.height() - 2, text_width, top_border)
-                        # Positioning is a bit different in QT here
-                        list_of_textmarkers.append((temp_rect, str(int(frame + 1))))
-                x += self.sample_width
-                sample += 1
-                if sample % self.samples_per_frame == 0:
-                    frame += 1
-            painter.drawLines(self.list_of_lines)
-            for text_marker in list_of_textmarkers:
-                painter.drawText(text_marker[0], QtCore.Qt.AlignmentFlag.AlignLeft, text_marker[1])
+        pen = QtGui.QPen(self._color("frame_color", "frame_color"))
+        painter.setPen(pen)
+        painter.setFont(font)
 
+        bg_height = self.height() + self.horizontalScrollBar().height()
+        half_client_height = bg_height / 2
+        fm = QtGui.QFontMetrics(font)
+        text_width = fm.horizontalAdvance("Ojyg")
+        top_border = fm.height() * 2
+
+        cache_key = (self.frame_width, self.samples_per_frame, len(self.amp), bg_height)
+        if cache_key != self._bg_cache_key:
+            self._build_bg_cache(cache_key, text_width, top_border, bg_height)
+        if self._bg_lines:
+            painter.drawLines(self._bg_lines)
+        for text_rect, label in self._bg_texts:
+            painter.drawText(text_rect, QtCore.Qt.AlignmentFlag.AlignLeft, label)
+
+    def _build_bg_cache(self, cache_key, text_width, top_border, bg_height):
+        self._bg_cache_key = cache_key
+        self._bg_lines = []
+        self._bg_texts = []
+        frame_width, samples_per_frame, n_samples, _ = cache_key
+        if n_samples == 0:
+            return
+        fps = int(round(self.doc.fps))
+        # Only frame boundaries get ticks. Frame k (1-based) ends at sample
+        # k*samples_per_frame, and is drawn at x = k * frame_width.
+        n_frames = n_samples // samples_per_frame
+        if n_frames == 0:
+            return
+        frame_numbers = np.arange(1, n_frames + 1)
+        xs = frame_numbers * frame_width
+        # Mask: which ticks to draw (every frame if zoomed in, else every fps-th).
+        draw_main = (frame_width > 2) | ((frame_numbers % fps) == 0)
+        # Mask: which ticks also get a label.
+        draw_label = (frame_width > 30) | ((frame_numbers % 5) == 0)
+        fm = QtGui.QFontMetrics(font)
+        for x, frame, do_main, do_label in zip(xs, frame_numbers, draw_main, draw_label):
+            if not do_main:
+                continue
+            xf = float(x)
+            self._bg_lines.append(QtCore.QLineF(xf, top_border, xf, bg_height))
+            if do_label:
+                self._bg_lines.append(QtCore.QLineF(xf, 0, xf, top_border))
+                self._bg_lines.append(QtCore.QLineF(xf + 1, 0, xf + 1, bg_height))
+                text_rect = QtCore.QRectF(int(xf + 4), fm.height() - 2,
+                                          text_width, top_border)
+                self._bg_texts.append((text_rect, str(int(frame))))
+
+    # ------------------------------------------------------------------ #
+    # Waveform creation (vectorized)
+    # ------------------------------------------------------------------ #
     def start_create_waveform(self):
-        # worker = utilities.Worker(self.create_waveform)
-        # worker.signals.finished.connect(self.waveform_finished)
-        # worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
-
         self.main_window.lip_sync_frame.status_progress.show()
         available_height = int(self.height() / 2)
-        fitted_samples = self.amp * available_height
-        self.main_window.lip_sync_frame.status_progress.setMaximum(len(fitted_samples))
+        fitted = self.amp * available_height
+        self.main_window.lip_sync_frame.status_progress.setMaximum(max(1, len(fitted)))
+        # Build the polygon vectorized; emit progress a few times only.
         self.create_waveform(self.main_window.lip_sync_frame.status_bar_progress)
         self.waveform_finished()
-        # self.threadpool.start(worker)
-        # self.threadpool.waitForDone()
 
     def waveform_finished(self):
         self.main_window.lip_sync_frame.status_progress.hide()
         update_rect = self.scene().sceneRect()
         update_rect.setHeight(self.size().height() - 1)
-        if self.doc:
+        if self.doc and self.waveform_polygon is not None:
             update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
             self.setSceneRect(update_rect)
             self.scene().setSceneRect(update_rect)
-            # We need to at least update the Y Position of the Phonemes
-            font_metrics = QtGui.QFontMetrics(font)
-            text_width, top_border = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() * 2
-            text_width, text_height = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() + 6
-            top_border += 4
         self.horizontalScrollBar().setValue(self.scroll_position)
         try:
             if self.temp_play_marker:
-                self.temp_play_marker.setRect(self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
+                self.temp_play_marker.setRect(
+                    self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
         except RuntimeError:
-            pass  # When changing a file we get a RuntimeError from QT because it deletes the temp_play_marker
-        self.waveform_polygon.resetTransform()  # Change the transform back when resize is finished.
+            pass
+        if self.waveform_polygon is not None:
+            self.waveform_polygon.resetTransform()
         self.scene().update()
 
     def create_waveform(self, progress_callback):
+        """Build the waveform polygon from ``self.amp`` using numpy.
+
+        The old implementation appended points one-by-one in a Python loop and
+        called ``progress_callback`` + ``statusbar.showMessage`` per sample.
+        Here the upper and lower envelope point arrays are constructed with
+        numpy and converted to a QPolygonF in one shot.
+        """
+        if self.amp.size == 0:
+            return
         available_height = int(self.height() / 2)
-        fitted_samples = self.amp * available_height
-        offset = 0  # available_height / 2
-        temp_polygon = QtGui.QPolygonF()
-        for x, y in enumerate(fitted_samples):
-            progress_callback((x / 2))
-            self.main_window.statusbar.showMessage(
-                self.translator.translate("WaveformView", "Preparing Waveform: {0}%").format(str(int(((x / 2) / len(fitted_samples)) * 100))))
-            temp_polygon.append(QtCore.QPointF(x * self.sample_width, available_height - y + offset))
-            if x < len(fitted_samples):
-                temp_polygon.append(QtCore.QPointF((x + 1) * self.sample_width, available_height - y + offset))
-        for x, y in enumerate(fitted_samples[::-1]):
-            progress_callback((len(fitted_samples) / 2) + (x / 2))
-            self.main_window.statusbar.showMessage(
-                self.translator.translate("WaveformView", "Preparing Waveform: {0}%").format(str(int(((x / 2) / len(fitted_samples)) * 100) + 50)))
-            temp_polygon.append(QtCore.QPointF((len(fitted_samples) - x) * self.sample_width,
-                                               available_height + y + offset))
-            if x > 0:
-                temp_polygon.append(QtCore.QPointF((len(fitted_samples) - x - 1) * self.sample_width,
-                                                   available_height + y + offset))
-        if self.waveform_polygon:
+        fitted = self.amp * available_height
+        offset = 0
+        n = fitted.size
+        sw = self.sample_width
+
+        # Upper envelope: for each sample, (x, y) then (x+sw, y).
+        xs0 = np.arange(n) * sw
+        xs1 = xs0 + sw
+        upper_x = np.empty(2 * n)
+        upper_y = np.empty(2 * n)
+        upper_x[0::2] = xs0
+        upper_x[1::2] = xs1
+        upper_y[0::2] = available_height - fitted + offset
+        upper_y[1::2] = available_height - fitted + offset
+
+        # Lower envelope: mirror, reversed.
+        rev = fitted[::-1]
+        lower_x = np.empty(2 * n)
+        lower_y = np.empty(2 * n)
+        lower_x[0::2] = (n - np.arange(n)) * sw
+        lower_x[1::2] = (n - np.arange(n) - 1) * sw
+        lower_y[0::2] = available_height + rev + offset
+        lower_y[1::2] = available_height + rev + offset
+        # Drop the degenerate duplicate at index 0 of the lower run.
+        if n > 0:
+            lower_y[0] = lower_y[1]
+
+        all_x = np.concatenate([upper_x, lower_x])
+        all_y = np.concatenate([upper_y, lower_y])
+        temp_polygon = QtGui.QPolygonF([QtCore.QPointF(x, y) for x, y in zip(all_x, all_y)])
+
+        if progress_callback is not None:
+            try:
+                progress_callback(n)
+            except RuntimeError:
+                pass
+
+        if self.waveform_polygon is not None:
             self.waveform_polygon.setPolygon(temp_polygon)
         else:
-            self.waveform_polygon = self.scene().addPolygon(temp_polygon, QtGui.QColor(
-                self.settings.get("/Graphics/{}".format("wave_line_color"),
-                                    utilities.original_colors["wave_line_color"])),
-                                                            QtGui.QColor(
-                                                                self.settings.get(
-                                                                    "/Graphics/{}".format("wave_fill_color"),
-                                                                    utilities.original_colors["wave_fill_color"])))
+            self.waveform_polygon = self.scene().addPolygon(
+                temp_polygon,
+                self._color("wave_line_color", "wave_line_color"),
+                self._color("wave_fill_color", "wave_fill_color"))
         self.waveform_polygon.setZValue(1)
-        self.main_window.statusbar.showMessage("Papagayo-NG")
+        if self.main_window is not None:
+            self.main_window.statusbar.showMessage("Papagayo-NG")
 
+    # ------------------------------------------------------------------ #
+    # Movable buttons creation (de-duplicated)
+    # ------------------------------------------------------------------ #
     def start_create_movbuttons(self):
-        if self.doc is not None:
-            # worker = Worker(self.create_movbuttons)
-            # worker.signals.finished.connect(self.movbuttons_finished)
-            # worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
-
-            self.main_window.lip_sync_frame.status_progress.show()
-            self.main_window.lip_sync_frame.status_progress.setMaximum(self.doc.current_voice.num_children)
-            # self.threadpool.start(worker)
-            # self.threadpool.waitForDone()
-            self.create_movbuttons(self.main_window.lip_sync_frame.status_bar_progress)
+        if self.doc is None:
+            return
+        self.main_window.lip_sync_frame.status_progress.show()
+        self.main_window.lip_sync_frame.status_progress.setMaximum(
+            self.doc.current_voice.num_children)
+        self.create_movbuttons(self.main_window.lip_sync_frame.status_bar_progress)
 
     def movbuttons_finished(self):
         self.main_window.lip_sync_frame.status_progress.hide()
         self.start_recalc()
 
     def create_movbuttons(self, progress_callback):
-        if self.doc is not None:
-            self.setUpdatesEnabled(False)
-            font_metrics = QtGui.QFontMetrics(font)
-            text_width, top_border = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() * 2
-            text_width, text_height = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() + 6
-            top_border += 4
-            current_num = 0
+        if self.doc is None:
+            return
+        self.setUpdatesEnabled(False)
+        fm, _, text_height = self._text_metrics()
+        top_border = fm.height() * 2 + 4
+        current_num = 0
+        total = max(1, self.doc.current_voice.num_children)
 
-            for phrase in self.doc.current_voice.children:
-                if not phrase.move_button:
-                    self.temp_button = MovableButton(phrase, self)
-                    phrase.move_button = self.temp_button
-                    # self.temp_button.node = Node(self.temp_button, parent=self.main_node)
-                    temp_scene_widget = self.scene().addWidget(self.temp_button)
-                    temp_rect = QtCore.QRect(phrase.start_frame * self.frame_width, top_border,
-                                             (phrase.end_frame - phrase.start_frame) * self.frame_width + 1,
-                                             text_height)
-                    temp_scene_widget.setGeometry(temp_rect)
-                    temp_scene_widget.setZValue(99)
-                    self.temp_phrase = self.temp_button
-                else:
-                    try:
-                        phrase.move_button.setVisible(True)
-                    except RuntimeError:
-                        self.temp_button = MovableButton(phrase, self)
-                        phrase.move_button = self.temp_button
-                        # self.temp_button.node = Node(self.temp_button, parent=self.main_node)
-                        temp_scene_widget = self.scene().addWidget(self.temp_button)
-                        temp_rect = QtCore.QRect(phrase.start_frame * self.frame_width, top_border,
-                                                 (phrase.end_frame - phrase.start_frame) * self.frame_width + 1,
-                                                 text_height)
-                        temp_scene_widget.setGeometry(temp_rect)
-                        temp_scene_widget.setZValue(99)
-                        self.temp_phrase = self.temp_button
-                word_count = 0
+        for phrase in self.doc.current_voice.children:
+            self._make_or_show_button(phrase, top_border, text_height, 0)
+            self.temp_phrase = phrase.move_button
+            current_num += 1
+            self._report_progress(progress_callback, current_num, total, "Preparing Buttons")
+
+            word_count = 0
+            for word in phrase.children:
+                y = top_border + 4 + text_height + (text_height * (word_count % 2))
+                self._make_or_show_button(word, y, text_height, word_count % 2)
+                self.temp_word = word.move_button
+                word_count += 1
                 current_num += 1
-                progress_callback(current_num)
-                if self.doc.current_voice.num_children:
-                    self.main_window.statusbar.showMessage(self.translator.translate("WaveformView", "Preparing Buttons: {0}%").format(
-                        str(int((current_num / self.doc.current_voice.num_children) * 100))))
-                for word in phrase.children:
-                    if not word.move_button:
-                        self.temp_button = MovableButton(word, self)
-                        word.move_button = self.temp_button
-                        # self.temp_button.node = Node(self.temp_button, parent=self.temp_phrase.node)
-                        temp_scene_widget = self.scene().addWidget(self.temp_button)
-                        temp_rect = QtCore.QRect(word.start_frame * self.frame_width, top_border + 4 + text_height +
-                                                 (text_height * (word_count % 2)), (word.end_frame - word.start_frame) *
-                                                 self.frame_width + 1, text_height)
-                        temp_scene_widget.setGeometry(temp_rect)
-                        temp_scene_widget.setZValue(99)
-                        self.temp_word = self.temp_button
-                    else:
-                        try:
-                            word.move_button.setVisible(True)
-                        except RuntimeError:
-                            self.temp_button = MovableButton(word, self)
-                            word.move_button = self.temp_button
-                            # self.temp_button.node = Node(self.temp_button, parent=self.temp_phrase.node)
-                            temp_scene_widget = self.scene().addWidget(self.temp_button)
-                            temp_rect = QtCore.QRect(word.start_frame * self.frame_width, top_border + 4 + text_height +
-                                                     (text_height * (word_count % 2)),
-                                                     (word.end_frame - word.start_frame) *
-                                                     self.frame_width + 1, text_height)
-                            temp_scene_widget.setGeometry(temp_rect)
-                            temp_scene_widget.setZValue(99)
-                            self.temp_word = self.temp_button
-                    word_count += 1
-                    phoneme_count = 0
+                self._report_progress(progress_callback, current_num, total, "Preparing Buttons")
+
+                phoneme_count = 0
+                for phoneme in word.children:
+                    self._make_or_show_phoneme(phoneme, text_height, phoneme_count % 2)
+                    self.temp_phoneme = phoneme.move_button
+                    phoneme_count += 1
                     current_num += 1
-                    progress_callback(current_num)
-                    if self.doc.current_voice.num_children:
-                        self.main_window.statusbar.showMessage(self.translator.translate("WaveformView", "Preparing Buttons: {0}%").format(
-                            str(int((current_num / self.doc.current_voice.num_children) * 100))))
-                    for phoneme in word.children:
-                        if not phoneme.move_button:
-                            self.temp_button = MovableButton(phoneme, self, phoneme_count % 2)
-                            phoneme.move_button = self.temp_button
-                            # self.temp_button.node = Node(self.temp_button, parent=self.temp_word.node)
-                            temp_scene_widget = self.scene().addWidget(self.temp_button)
-                            temp_rect = QtCore.QRect(phoneme.start_frame * self.frame_width, self.height() -
-                                                     int(self.horizontalScrollBar().height() * 1.5) -
-                                                     (text_height + (text_height * (phoneme_count % 2))),
-                                                     self.frame_width, text_height)
-                            temp_scene_widget.setGeometry(temp_rect)
-                            temp_scene_widget.setZValue(99)
-                            self.temp_phoneme = self.temp_button
-                        else:
-                            try:
-                                phoneme.move_button.setVisible(True)
-                            except RuntimeError:
-                                self.temp_button = MovableButton(phoneme, self, phoneme_count % 2)
-                                phoneme.move_button = self.temp_button
-                                # self.temp_button.node = Node(self.temp_button, parent=self.temp_word.node)
-                                temp_scene_widget = self.scene().addWidget(self.temp_button)
-                                temp_rect = QtCore.QRect(phoneme.start_frame * self.frame_width, self.height() -
-                                                         int(self.horizontalScrollBar().height() * 1.5) -
-                                                         (text_height + (text_height * (phoneme_count % 2))),
-                                                         self.frame_width, text_height)
-                                temp_scene_widget.setGeometry(temp_rect)
-                                temp_scene_widget.setZValue(99)
-                                self.temp_phoneme = self.temp_button
-                        phoneme_count += 1
-                        current_num += 1
-                        progress_callback(current_num)
-                        if self.doc.current_voice.num_children:
-                            self.main_window.statusbar.showMessage(
-                                self.translator.translate("WaveformView", "Preparing Buttons: {0}%").format(
-                                    str(int((current_num / self.doc.current_voice.num_children) * 100))))
-            self.main_window.statusbar.showMessage("Papagayo-NG")
-            self.setUpdatesEnabled(True)
+                    self._report_progress(progress_callback, current_num, total, "Preparing Buttons")
 
+        self.main_window.statusbar.showMessage("Papagayo-NG")
+        self.setUpdatesEnabled(True)
+
+    def _report_progress(self, progress_callback, current, total, label):
+        if progress_callback is not None:
+            try:
+                progress_callback(current)
+            except RuntimeError:
+                pass
+        self.main_window.statusbar.showMessage(
+            self.translator.translate("WaveformView", "{}: {{0}}%".format(label)).format(
+                str(int((current / total) * 100))))
+
+    def _make_or_show_button(self, node, y, text_height, slot):
+        """Create-or-reuse a phrase/word button at row ``y``."""
+        if node.move_button:
+            try:
+                node.move_button.setVisible(True)
+                return
+            except RuntimeError:
+                pass  # fall through and recreate
+        button = MovableButton(node, self)
+        node.move_button = button
+        proxy = self.scene().addWidget(button)
+        proxy.setGeometry(QtCore.QRect(
+            node.start_frame * self.frame_width, y,
+            (node.end_frame - node.start_frame) * self.frame_width + 1, text_height))
+        proxy.setZValue(99)
+
+    def _make_or_show_phoneme(self, node, text_height, slot):
+        """Create-or-reuse a phoneme button (bottom of the view, staggered)."""
+        if node.move_button:
+            try:
+                node.move_button.setVisible(True)
+                return
+            except RuntimeError:
+                pass
+        button = MovableButton(node, self, slot)
+        node.move_button = button
+        proxy = self.scene().addWidget(button)
+        y = self.height() - int(self.horizontalScrollBar().height() * 1.5) \
+            - (text_height + (text_height * slot))
+        proxy.setGeometry(QtCore.QRect(
+            node.start_frame * self.frame_width, y, self.frame_width, text_height))
+        proxy.setZValue(99)
+
+    # ------------------------------------------------------------------ #
+    # Waveform recalculation (threaded)
+    # ------------------------------------------------------------------ #
     def start_recalc(self, wait_for_done=True):
-        # worker = utilities.Worker(self.recalc_waveform)
-        # worker.signals.finished.connect(self.recalc_finished)
-        # worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
-
+        if self.doc is None or self.doc.sound is None:
+            return
         self.main_window.lip_sync_frame.status_progress.show()
-        self.main_window.lip_sync_frame.status_progress.setMaximum(self.doc.sound.Duration())
-        # self.threadpool.start(worker)
-        # if wait_for_done:
-        #     self.threadpool.waitForDone()
-        self.recalc_waveform(self.main_window.lip_sync_frame.status_bar_progress)
-        self.recalc_finished()
+        duration = self.doc.sound.Duration()
+        self.main_window.lip_sync_frame.status_progress.setMaximum(max(1, int(duration)))
+        if wait_for_done:
+            # Synchronous: callers (zoom, fps change) need self.amp updated
+            # before they proceed to rebuild the waveform / scene.
+            self.recalc_waveform(self.main_window.lip_sync_frame.status_bar_progress)
+            self.recalc_finished()
+        else:
+            # Asynchronous: for initial document load, keeps UI responsive.
+            # recalc_finished -> start_create_waveform fires when done.
+            worker = _WaveformRecalcWorker(self.doc.sound, self.samples_per_sec, duration)
+            worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
+            worker.signals.result.connect(self._on_recalc_result)
+            worker.signals.finished.connect(self.recalc_finished)
+            worker.signals.error.connect(self._on_worker_error)
+            self.threadpool.start(worker)
+
+    def _on_recalc_result(self, result):
+        self.amp, self.num_samples = result
+
+    def _on_worker_error(self, error_info):
+        import traceback
+        print("[WaveformView] recalc worker error:", error_info[2])
 
     def recalc_finished(self):
         self.main_window.lip_sync_frame.status_progress.hide()
         self.start_create_waveform()
 
     def recalc_waveform(self, progress_callback):
+        """Synchronous fallback (kept for API compatibility)."""
         duration = self.doc.sound.Duration()
-        time_pos = 0.0
         sample_dur = 1.0 / self.samples_per_sec
-        max_amp = 0.0
-        self.amp = []
-        while time_pos < duration:
-            progress_callback(time_pos)
-            self.num_samples += 1
-            amp = self.doc.sound.get_rms_amplitude(time_pos, sample_dur)
-            self.amp.append(amp)
-            max_amp = max(max_amp, amp)
+        n = max(1, int(duration / sample_dur) + 1)
+        amp = np.empty(n, dtype=float)
+        time_pos = 0.0
+        for i in range(n):
+            amp[i] = self.doc.sound.get_rms_amplitude(time_pos, sample_dur)
             time_pos += sample_dur
-        self.amp = normalize(self.amp)
+            if progress_callback is not None and i % max(1, n // 100) == 0:
+                try:
+                    progress_callback(time_pos)
+                except RuntimeError:
+                    pass
+        self.amp = normalize(amp)
+        self.num_samples = n
 
+    # ------------------------------------------------------------------ #
+    # Document lifecycle
+    # ------------------------------------------------------------------ #
     def set_document(self, document, force=False, clear_scene=False):
-        if document != self.doc or force:
-            if document != self.doc or clear_scene:
-                self.scene().clear()
-                self.waveform_polygon = None
-            self.doc = document
-            if (self.doc is not None) and (self.doc.sound is not None):
-                for l_object in self.doc.project_node.descendants:
-                    try:
-                        if l_object.move_button:
-                            l_object.move_button.setVisible(False)
-                    except RuntimeError:
-                        pass
-                self.create_movbuttons(self.main_window.lip_sync_frame.status_bar_progress)
-                self.start_recalc()
-                if self.temp_play_marker not in self.scene().items():
-                    self.temp_play_marker = self.scene().addRect(0, 1, self.frame_width + 1, self.height(),
-                                                                 QtGui.QPen(QtGui.QColor(
-                                                                     self.settings.get(
-                                                                         "/Graphics/{}".format("playback_line_color"),
-                                                                         utilities.original_colors[
-                                                                             "playback_line_color"]))),
-                                                                 QtGui.QBrush(QtGui.QColor(
-                                                                     self.settings.get(
-                                                                         "/Graphics/{}".format("playback_fill_color"),
-                                                                         utilities.original_colors[
-                                                                             "playback_fill_color"])),
-                                                                     QtCore.Qt.BrushStyle.SolidPattern))
-                    self.temp_play_marker.setZValue(1000)
-                    self.temp_play_marker.setOpacity(0.5)
-                    self.temp_play_marker.setVisible(False)
-                self.setViewportUpdateMode(QtWidgets.QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
-                self.scene().update()
+        if document == self.doc and not force:
+            return
+        if (document != self.doc) or clear_scene:
+            self.scene().clear()
+            self.waveform_polygon = None
+            self.temp_play_marker = None
+            self._bg_cache_key = None  # force bg rebuild
+        self.doc = document
+        if self.doc is None or self.doc.sound is None:
+            return
+        for l_object in self.doc.project_node.descendants:
+            try:
+                if l_object.move_button:
+                    l_object.move_button.setVisible(False)
+            except RuntimeError:
+                pass
+        self.create_movbuttons(self.main_window.lip_sync_frame.status_bar_progress)
+        self.start_recalc(wait_for_done=False)  # async: keeps UI responsive on load
+        self._ensure_play_marker(visible=False)
+        self.setViewportUpdateMode(QtWidgets.QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        self.scene().update()
 
+    # ------------------------------------------------------------------ #
+    # Scroll / zoom
+    # ------------------------------------------------------------------ #
     def on_slider_change(self, value):
         self.scroll_position = value
 
@@ -597,85 +686,70 @@ class WaveformView(QtWidgets.QGraphicsView):
         except ZeroDivisionError:
             height_factor = 1
         update_rect.setHeight(event.size().height())
-        if self.doc:
+        if self.doc and self.waveform_polygon is not None:
             update_rect.setWidth(self.waveform_polygon.polygon().boundingRect().width())
             self.setSceneRect(update_rect)
             self.scene().setSceneRect(update_rect)
             origin_x, origin_y = 0, 0
-            height_factor = height_factor * self.waveform_polygon.transform().m22()  # We need to add the factors
+            height_factor = height_factor * self.waveform_polygon.transform().m22()
             self.waveform_polygon.setTransform(QtGui.QTransform().translate(
                 origin_x, origin_y).scale(width_factor, height_factor).translate(-origin_x, -origin_y))
-            # We need to at least update the Y Position of the Phonemes
-            font_metrics = QtGui.QFontMetrics(font)
-            text_width, top_border = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() * 2
-            text_width, text_height = font_metrics.horizontalAdvance("Ojyg"), font_metrics.height() + 6
-            top_border += 4
-            for phoneme_node in self.doc.current_voice.leaves:  # this should be all phonemes
+            _, _, text_height = self._text_metrics()
+            for phoneme_node in self.doc.current_voice.leaves:
                 if phoneme_node.move_button:
                     widget = phoneme_node.move_button
-                    if widget.is_phoneme():  # shouldn't be needed, just to be sure
-                        widget.setGeometry(widget.x(), self.height() - (self.horizontalScrollBar().height() * 1.5) -
-                                           (text_height + (text_height * widget.phoneme_offset)), self.frame_width + 5,
-                                           text_height)
+                    if widget.is_phoneme():
+                        widget.setGeometry(
+                            widget.x(),
+                            self.height() - (self.horizontalScrollBar().height() * 1.5) -
+                            (text_height + (text_height * widget.phoneme_offset)),
+                            self.frame_width + 5, text_height)
             self.resize_timer.start(150)
         self.horizontalScrollBar().setValue(self.scroll_position)
         if self.temp_play_marker:
-            self.temp_play_marker.setRect(self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
+            self.temp_play_marker.setRect(
+                self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
+
+    def _apply_zoom(self, factor):
+        """Apply a zoom factor (2, 0.5, or reset) common to in/out/reset."""
+        if self.doc is None:
+            return
+        self.frame_width = self.sample_width * self.samples_per_frame
+        for node in self.doc.current_voice.descendants:
+            node.move_button.after_reposition()
+            node.move_button.fit_text_to_size()
+        self.start_recalc()
+        if self.temp_play_marker:
+            self.temp_play_marker.setRect(
+                self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
+        self.scene().setSceneRect(
+            self.scene().sceneRect().x(), self.scene().sceneRect().y(),
+            self.sceneRect().width() * factor, self.scene().sceneRect().height())
+        self.setSceneRect(self.scene().sceneRect())
+        self.horizontalScrollBar().setValue(self.scroll_position)
+        self.start_create_waveform()
 
     def on_zoom_in(self, event=None):
-        if (self.doc is not None) and (self.samples_per_frame < 16):
+        if self.doc is not None and self.samples_per_frame < 16:
             self.samples_per_frame *= 2
             self.samples_per_sec = self.doc.fps * self.samples_per_frame
-            self.frame_width = self.sample_width * self.samples_per_frame
-            for node in self.doc.current_voice.descendants:
-                node.move_button.after_reposition()
-                node.move_button.fit_text_to_size()
-            self.start_recalc()
-            if self.temp_play_marker:
-                self.temp_play_marker.setRect(self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
-            self.scene().setSceneRect(self.scene().sceneRect().x(), self.scene().sceneRect().y(),
-                                      self.sceneRect().width() * 2, self.scene().sceneRect().height())
-            self.setSceneRect(self.scene().sceneRect())
             self.scroll_position *= 2
-            self.horizontalScrollBar().setValue(self.scroll_position)
-            self.start_create_waveform()
+            self._apply_zoom(2)
 
     def on_zoom_out(self, event=None):
-        if (self.doc is not None) and (self.samples_per_frame > 1):
+        if self.doc is not None and self.samples_per_frame > 1:
             self.samples_per_frame /= 2
             self.samples_per_sec = self.doc.fps * self.samples_per_frame
-            self.frame_width = self.sample_width * self.samples_per_frame
-            for node in self.doc.current_voice.descendants:
-                node.move_button.after_reposition()
-                node.move_button.fit_text_to_size()
-            self.start_recalc()
-            if self.temp_play_marker:
-                self.temp_play_marker.setRect(self.temp_play_marker.rect().x(), 1, self.frame_width + 1, self.height())
-            self.scene().setSceneRect(self.scene().sceneRect().x(), self.scene().sceneRect().y(),
-                                      self.scene().sceneRect().width() / 2, self.scene().sceneRect().height())
-            self.setSceneRect(self.scene().sceneRect())
             self.scroll_position /= 2
-            self.horizontalScrollBar().setValue(self.scroll_position)
-            self.start_create_waveform()
+            self._apply_zoom(0.5)
 
     def on_zoom_reset(self, event=None):
-        if self.doc is not None:
-            if self.samples_per_frame != self.default_samples_per_frame:
-                self.scroll_position /= (self.samples_per_frame / self.default_samples_per_frame)
-                factor = (self.samples_per_frame / self.default_samples_per_frame)
-                self.sample_width = self.default_sample_width
-                self.samples_per_frame = self.default_samples_per_frame
-                self.samples_per_sec = self.doc.fps * self.samples_per_frame
-                self.frame_width = self.sample_width * self.samples_per_frame
-                for node in self.doc.current_voice.descendants:
-                    node.move_button.after_reposition()
-                    node.move_button.fit_text_to_size()
-                self.start_recalc()
-                if self.temp_play_marker:
-                    self.temp_play_marker.setRect(self.temp_play_marker.rect().x(), 1, self.frame_width + 1,
-                                                  self.height())
-                self.scene().setSceneRect(self.scene().sceneRect().x(), self.scene().sceneRect().y(),
-                                          self.scene().sceneRect().width() / factor, self.scene().sceneRect().height())
-                self.setSceneRect(self.scene().sceneRect())
-                self.horizontalScrollBar().setValue(self.scroll_position)
-                self.start_create_waveform()
+        if self.doc is None:
+            return
+        if self.samples_per_frame != self.default_samples_per_frame:
+            factor = (self.samples_per_frame / self.default_samples_per_frame)
+            self.scroll_position /= factor
+            self.sample_width = self.default_sample_width
+            self.samples_per_frame = self.default_samples_per_frame
+            self.samples_per_sec = self.doc.fps * self.samples_per_frame
+            self._apply_zoom(1 / factor)

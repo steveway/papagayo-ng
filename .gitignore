@@ -21,3 +21,4 @@ venv/
 /pyinstaller_build/
 .venv/
 .wix/
+backend_server/phonemation_backend/.env

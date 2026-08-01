@@ -55,10 +55,8 @@ def parse_cli():
                         help=translator.translate("CLI", "Choose the language for Alelo Export."))
     parser.add_argument("--mouth-images", dest="mouth_image_dir",
                         help=translator.translate("CLI", "The Directory containing the mouth Images."))
-    parser.add_argument("--use-allosaurus", dest="allosaurus", action="store_true",
-                        help=translator.translate("CLI", "Set this to run Allosaurus on your input files."))
-    parser.add_argument("--use-rhubarb", dest="rhubarb", action="store_true",
-                        help=translator.translate("CLI", "Set this to run Rhubarb on your input files."))
+    parser.add_argument("--use-onnx", dest="onnx", action="store_true",
+                        help=translator.translate("CLI", "Set this to run ONNX (wav2vec2 backend) on your input files."))
     parser.add_argument("--fps", dest="fps", help=translator.translate("CLI", "Set FPS for Input."), metavar="INT")
     parser.add_argument("--log-level", "-l", dest=ARG_KEY_LOG_LEVEL, choices=logging._nameToLevel.keys(), help="Set logging level.", default=logging._levelToName[logging.WARNING])
     args = parser.parse_args()
@@ -82,13 +80,10 @@ def parse_cli():
         settings.set_audio_output("new")
     else:
         settings.set_audio_output("old")
-        if args.allosaurus:
-            settings.set_recognizer("Allosaurus")
+        if args.onnx:
+            settings.set_recognizer("ONNX")
             settings.set_run_voice_recognition(True)
-        if args.rhubarb:
-            settings.set_recognizer("Rhubarb")
-            settings.set_run_voice_recognition(True)
-        if not args.allosaurus and not args.rhubarb:
+        if not args.onnx:
             settings.set_run_voice_recognition(False)
         if args.fps:
             settings.set_fps(args.fps)
