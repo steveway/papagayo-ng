@@ -20,14 +20,50 @@ You can use the included requirements.txt with pip to install these, like this f
 To run Papagayo-NG, double-click the papagayo-ng.py file, or run the following command:  
 ``python3 papagayo-ng.py``
 
-## Building
-For Windows at least we use Nuitka via installer-creator which you can get via pip: ``pip install installer-creator``
+## Building (Windows)
+Papagayo-NG ships with a self-contained build script (`build_windows.py`) that
+produces a standalone `.exe` with [Nuitka](https://nuitka.net/) and an MSI
+installer with the [WIX Toolset v4](https://wixtoolset.org/).
 
-You can build the executable and installer by running:
+### Prerequisites
+* Python 3.9+ with the project dependencies installed:
+  ``pip install -r requirements.txt`` (this also pulls in Nuitka and PyYAML).
+* The WIX v4 CLI (`wix.exe`) on your PATH, downloadable from
+  https://wixtoolset.org/releases/ — only needed for the installer step.
 
-``py -m installer_creator build-exe -c build_config.yaml``
+All build settings (version, icon, data folders, installer metadata) live in
+`build_config.yaml`, so that file is the single source of truth.
 
-``py -m installer_creator build-installer -c build_config.yaml``
+### Build everything (exe + installer)
+``py build_windows.py``
+
+### Build only the standalone exe
+``py build_windows.py --target exe``
+The exe is written to `dist/papagayo-ng.exe`.
+
+### Build only the MSI installer
+``py build_windows.py --target installer``
+This expects the exe to already exist under `dist/` (build it first with
+`--target exe` if it doesn't). The installer is written to
+`dist/papagayo-ng_installer.msi`.
+
+### Clean previous artefacts before building
+``py build_windows.py --clean``
+
+### Notes
+* If Nuitka is missing, the script will offer to install it via pip
+  (pass `--no-auto-install` to disable that).
+* Every exe build is smoke-tested from an isolated working directory. The build
+  fails if the packaged application cannot initialize; use `--skip-smoke-test`
+  only when a launch test is not possible (for example, in a headless runner).
+* Nuitka writes a dependency report to `build/nuitka-report.xml`.
+* Startup failures are recorded in
+  `%LOCALAPPDATA%/Morevna Project/PapagayoNG/startup-crash.log` and displayed to
+  users even though the release exe has no console.
+* The installer stages `rsrc/`, `phonemes/`, `translations/` and `breakdowns/`
+  alongside the exe so users can customise resources after installing.
+* The WIX source template lives in `wix/papagayo-ng.wxs`; the per-file
+  component fragment is generated automatically into `build/PapagayoFiles.wxs`.
 
 ## Contents
 The Papagayo-NG source package includes the following files:

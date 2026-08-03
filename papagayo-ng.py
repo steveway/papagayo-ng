@@ -11,8 +11,8 @@ import logging
 import os
 import platform
 import sys
+import traceback
 import papagayongrcc
-import LipsyncFrameQT
 import logging
 from utilities import init_logging
 
@@ -59,6 +59,7 @@ def parse_cli():
                         help=translator.translate("CLI", "Set this to run ONNX (wav2vec2 backend) on your input files."))
     parser.add_argument("--fps", dest="fps", help=translator.translate("CLI", "Set FPS for Input."), metavar="INT")
     parser.add_argument("--log-level", "-l", dest=ARG_KEY_LOG_LEVEL, choices=logging._nameToLevel.keys(), help="Set logging level.", default=logging._levelToName[logging.WARNING])
+    parser.add_argument("--build-smoke-test", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     # update root logger log level
@@ -151,10 +152,13 @@ def parse_cli():
                 if args.output_file:
                     i.save2(args.output_file)
 
-    return args.use_cli
+    return args
 
 
-if __name__ == "__main__":
+def main():
+    global LipsyncFrameQT
+    import LipsyncFrameQT
+
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
     init_logging()
 
@@ -166,14 +170,39 @@ if __name__ == "__main__":
         if splash_file.exists():
             splash_file.unlink()
     application = QtWidgets.QApplication(sys.argv)
-    use_cli = parse_cli()
-    if not use_cli:
-        if platform.system() == "Windows":
-            kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
-            process_array = (ctypes.c_uint8 * 1)()
-            num_processes = kernel32.GetConsoleProcessList(process_array, 1)
-            if num_processes < 3:
-                ctypes.WinDLL('user32').ShowWindow(kernel32.GetConsoleWindow(), 0)
-        papagayo_window = LipsyncFrameQT.LipsyncFrame()
-        papagayo_window.main_window.show()
-        sys.exit(papagayo_window.app.exec())
+    args = parse_cli()
+    if args.use_cli:
+        return 0
+    if platform.system() == "Windows":
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        process_array = (ctypes.c_uint8 * 1)()
+        num_processes = kernel32.GetConsoleProcessList(process_array, 1)
+        if num_processes < 3:
+            ctypes.WinDLL('user32').ShowWindow(kernel32.GetConsoleWindow(), 0)
+    papagayo_window = LipsyncFrameQT.LipsyncFrame()
+    papagayo_window.main_window.show()
+    if args.build_smoke_test:
+        QtCore.QTimer.singleShot(1000, application.quit)
+    return papagayo_window.app.exec()
+
+
+def report_startup_error():
+    crash_file = utilities.get_app_data_path() / "startup-crash.log"
+    with crash_file.open("a", encoding="utf-8") as stream:
+        traceback.print_exc(file=stream)
+    logging.exception("Papagayo-NG failed during startup")
+    if platform.system() == "Windows" and not os.environ.get("PAPAGAYO_BUILD_SMOKE_TEST"):
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            f"Papagayo-NG could not start.\n\nDiagnostic details were written to:\n{crash_file}",
+            "Papagayo-NG startup error",
+            0x10,
+        )
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:
+        report_startup_error()
+        sys.exit(1)

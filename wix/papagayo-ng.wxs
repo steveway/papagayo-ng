@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Papagayo-NG WIX v4 installer template.
+
+  Consumed by build_windows.py via `wix build`. The following variables are
+  passed on the command line with -d <Name>=<Value>:
+
+    ProductName        e.g. "Papagayo-NG"
+    Manufacturer       e.g. "Morevna Project"
+    ProductVersion     e.g. "1.9.1.0"  (must be x.x.x.x for MSI)
+    UpgradeCode        stable GUID for major upgrades
+    HelpLink           URL shown in Add/Remove Programs
+    IconPath           absolute path to papagayo-ng.ico
+    LicenseRtfPath     absolute path to license.rtf (may be omitted)
+    BannerBmpPath      absolute path to WIX banner bitmap (may be omitted)
+    DialogBmpPath      absolute path to WIX dialog bitmap (may be omitted)
+
+  The staged install tree (harvested into PapagayoFiles.wxs by the build
+  script) must contain papagayo-ng.exe at its root plus the rsrc/, phonemes/,
+  translations/ and breakdowns/ folders and the assorted loose files.
+
+  Requires the WixToolset.UI.wixext extension (auto-installed by the build
+  script via `wix extension add WixToolset.UI.wixext`).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+    Name="$(var.ProductName)"
+    Manufacturer="$(var.Manufacturer)"
+    Version="$(var.ProductVersion)"
+    Language="1033"
+    Codepage="1252"
+    UpgradeCode="$(var.UpgradeCode)">
+
+    <SummaryInformation
+      Codepage="1252"
+      Description="$(var.ProductName) [$(var.ProductVersion)] installer"
+      Manufacturer="$(var.Manufacturer)"
+      Keywords="lipsync,animation,papagayo" />
+
+    <!-- Major upgrade support: replaces older versions, blocks downgrades. -->
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."
+      AllowSameVersionUpgrades="yes" />
+
+    <!-- Embed the cabinet inside the MSI for a single-file deliverable. -->
+    <Media Id="1" Cabinet="papagayo.cab" EmbedCab="yes" />
+
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+    <Property Id="ARPHELPLINK" Value="$(var.HelpLink)" />
+    <Property Id="ARPURLINFOABOUT" Value="$(var.HelpLink)" />
+
+    <Icon Id="ProductIcon" SourceFile="$(var.IconPath)" />
+
+    <!--
+      UI flow: welcome -> license -> directory -> progress -> finish.
+      WixUI_InstallDir provides a directory-browse page.
+    -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+    <ui:WixUI Id="WixUI_InstallDir" />
+
+    <!-- Optional branded bitmaps / license. Omitted variables are ignored. -->
+    <?ifdef BannerBmpPath ?>
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.BannerBmpPath)" />
+    <?endif ?>
+    <?ifdef DialogBmpPath ?>
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.DialogBmpPath)" />
+    <?endif ?>
+    <?ifdef LicenseRtfPath ?>
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtfPath)" />
+    <?endif ?>
+
+    <!-- Install directory tree. The harvested PapagayoFiles component group
+         is anchored at INSTALLDIR. -->
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLDIR" Name="$(var.ProductName)" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="StartMenuDir" Name="$(var.ProductName)" />
+    </StandardDirectory>
+
+    <Feature Id="ProductFeature" Title="$(var.ProductName)" Level="1"
+             Display="expand" Description="The complete $(var.ProductName) application.">
+      <ComponentGroupRef Id="PapagayoFiles" />
+      <ComponentRef Id="StartMenuShortcuts" />
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="RegistryInfo" />
+    </Feature>
+
+    <!-- Registry entry storing the install path (used for upgrades). -->
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="RegistryInfo" Guid="*">
+        <RegistryKey Root="HKLM" Key="Software\$(var.Manufacturer)\$(var.ProductName)">
+          <RegistryValue Type="string" Name="Path" Value="[INSTALLDIR]" KeyPath="yes" />
+          <RegistryValue Type="string" Name="Version" Value="$(var.ProductVersion)" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Start Menu shortcuts (app + uninstall). -->
+    <DirectoryRef Id="StartMenuDir">
+      <Component Id="StartMenuShortcuts" Guid="*">
+        <Shortcut Id="StartMenuAppShortcut"
+                  Name="$(var.ProductName)"
+                  Target="[INSTALLDIR]papagayo-ng.exe"
+                  WorkingDirectory="INSTALLDIR"
+                  Icon="ProductIcon"
+                  Description="Launch $(var.ProductName)" />
+        <Shortcut Id="StartMenuUninstallShortcut"
+                  Name="Uninstall $(var.ProductName)"
+                  Target="[SystemFolder]msiexec.exe"
+                  Arguments="/x [ProductCode]"
+                  Description="Remove $(var.ProductName)" />
+        <RemoveFolder Id="RemoveStartMenuDir" On="uninstall" />
+        <RegistryKey Root="HKLM" Key="Software\$(var.Manufacturer)\$(var.ProductName)\Shortcuts">
+          <RegistryValue Type="integer" Name="StartMenu" Value="1" KeyPath="yes" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Desktop shortcut (uses StandardDirectory instead of deprecated DirectoryRef). -->
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="*">
+        <Shortcut Id="DesktopAppShortcut"
+                  Name="$(var.ProductName)"
+                  Target="[INSTALLDIR]papagayo-ng.exe"
+                  WorkingDirectory="INSTALLDIR"
+                  Icon="ProductIcon"
+                  Description="Launch $(var.ProductName)" />
+        <RemoveFolder Id="RemoveDesktopShortcut" On="uninstall" />
+        <RegistryKey Root="HKLM" Key="Software\$(var.Manufacturer)\$(var.ProductName)\Shortcuts">
+          <RegistryValue Type="integer" Name="Desktop" Value="1" KeyPath="yes" />
+        </RegistryKey>
+      </Component>
+    </StandardDirectory>
+
+  </Package>
+</Wix>

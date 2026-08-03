@@ -20,6 +20,9 @@ build:
   include:
     packages:
       - "appdirs"
+      - "breakdowns"
+    modules:
+      - "scipy._external.array_api_compat.numpy.fft"
     plugins:
       - "pyside6"
     data_dirs:
@@ -65,7 +68,7 @@ installer:
 debug:
   enabled: false
   console:
-    mode: "disabled"
+    mode: "disable"
     stdout: null
     stderr: null
 

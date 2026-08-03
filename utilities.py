@@ -25,17 +25,15 @@ original_colors = {"wave_fill_color": QtGui.QColor(162, 205, 242),
 def main_is_frozen():
     return (hasattr(sys, "frozen") or  # new py2exe
             hasattr(sys, "importers") or
-            hasattr(sys, "_MEIPASS"))
+            hasattr(sys, "_MEIPASS") or
+            "__compiled__" in globals())
 
 
 def get_main_dir():
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    # PyInstaller creates a temp folder and stores path in _MEIPASS
+    """Get the absolute path containing bundled application resources."""
     if hasattr(sys, "_MEIPASS"):
-        base_path = Path(sys.executable).parent
-    else:
-        base_path = Path(".").absolute()
-    return base_path
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent
 
 
 def get_app_data_path():
