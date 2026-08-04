@@ -156,9 +156,13 @@ class ModelHandler:
         else:
             ModelHandler.__instance = self
         self.token = os.environ.get("HF_TOKEN") or _DEFAULT_HF_TOKEN  # read-only access
-        self.collections = list_collections(owner="steveway", token=self.token)
         self.cached_models = {"phoneme": {}, "emotion": {}}
         self.download_threads = []
+        self._refresh_collections()
+
+    def _refresh_collections(self):
+        """(Re)fetch the HuggingFace collections using the current token."""
+        self.collections = list_collections(owner="steveway", token=self.token)
         for collection in self.collections:
             if collection.title == "emotion_models":
                 self.emotion_collection = get_collection(collection.slug, token=self.token)
@@ -166,6 +170,17 @@ class ModelHandler:
                 self.phoneme_collection = get_collection(collection.slug, token=self.token)
             else:
                 pass
+
+    def set_token(self, token):
+        """Update the HuggingFace token and re-fetch the collections.
+
+        Also clears the in-process model list cache so subsequent calls
+        reflect the new access scope.  ``token`` may be an empty string to
+        fall back to the default read-only token.
+        """
+        self.token = token or os.environ.get("HF_TOKEN") or _DEFAULT_HF_TOKEN
+        self.cached_models = {"phoneme": {}, "emotion": {}}
+        self._refresh_collections()
 
     def cache_models(self):
         for model in self.emotion_collection.items:

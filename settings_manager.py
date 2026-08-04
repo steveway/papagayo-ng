@@ -55,6 +55,9 @@ class SettingsManager:
         # Behavior settings
         REST_AFTER_WORDS = "rest_after_words"
         REST_AFTER_PHONEMES = "rest_after_phonemes"
+
+        # Backend settings
+        HF_TOKEN = "hf_token"
     
     @classmethod
     def get_instance(cls):
@@ -277,3 +280,11 @@ class SettingsManager:
     def clear_settings(self):
         """Clear all settings."""
         self._settings.clear()
+
+    def get_hf_token(self):
+        """Get the HuggingFace read-only access token used by the backend."""
+        return self.get(self.Keys.HF_TOKEN, "")
+
+    def set_hf_token(self, token):
+        """Set the HuggingFace read-only access token used by the backend."""
+        self.set(self.Keys.HF_TOKEN, token)

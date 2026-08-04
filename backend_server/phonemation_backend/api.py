@@ -46,6 +46,10 @@ class ModelDownloadRequest(BaseModel):
     force: bool = Field(False, description="Re-download even if the model already exists locally")
 
 
+class HfTokenRequest(BaseModel):
+    token: str = Field(..., description="HuggingFace read-only access token (empty string to clear)")
+
+
 def _default_model_cache_path() -> Path:
     try:
         from .utilities import get_app_data_path
@@ -250,6 +254,29 @@ def create_backend_app(backend: Optional["PhonemationBackend"] = None) -> FastAP
             "phoneme": phoneme_models,
             "emotion": emotion_models,
         }
+
+    @app.post("/hf_token")
+    async def set_hf_token(request: HfTokenRequest):
+        """Update the HuggingFace token used by the running backend.
+
+        Forwards the token to ``ModelHandler`` so subsequent collection
+        lookups and downloads authenticate with it.  Also invalidates the
+        in-process model list cache so the next ``/models`` call reflects
+        the new access scope.
+        """
+        from .model_manager import ModelHandler
+
+        try:
+            mh = ModelHandler.get_instance()
+            mh.set_token(request.token)
+        except Exception as exc:
+            logging.error("Failed to update HF token: %s", exc)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        # Invalidate the cached model listings so they are re-fetched.
+        with _hf_models_cache_lock:
+            _hf_models_cache.clear()
+        return {"status": "ok"}
 
     def _begin_download(model_id: str, force: bool) -> dict:
         """Start (or report) a background download. Shared by /download and /update."""

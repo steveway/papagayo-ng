@@ -104,11 +104,19 @@ class BackendRecognizer:
             str(port),
         ]
 
+        # Pass the HuggingFace token (if configured) to the backend subprocess
+        # so ModelHandler can authenticate against the HF Hub.
+        env = os.environ.copy()
+        hf_token = self._get_hf_token()
+        if hf_token:
+            env["HF_TOKEN"] = hf_token
+
         logger.info("Starting backend subprocess: %s (cwd=%s)", " ".join(cmd), backend_dir)
         try:
             self._process = subprocess.Popen(
                 cmd,
                 cwd=backend_dir,
+                env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0,
@@ -194,6 +202,36 @@ class BackendRecognizer:
             return True
         port = _find_free_port(_DEFAULT_PORT)
         return self._start_subprocess(port)
+
+    @staticmethod
+    def _get_hf_token() -> str:
+        """Return the HuggingFace token configured in settings, if any."""
+        try:
+            from settings_manager import SettingsManager
+            return SettingsManager.get_instance().get_hf_token() or ""
+        except Exception:
+            return ""
+
+    def set_hf_token(self, token: str) -> bool:
+        """Push an updated HuggingFace token to the running backend.
+
+        If the backend is already running, the token is forwarded via the
+        ``/hf_token`` endpoint so ``ModelHandler`` can re-authenticate without
+        a restart.  Returns True if the token was delivered (or no backend is
+        running yet, in which case the next launch will pick it up).
+        """
+        if not self._available or not self._base_url:
+            return True
+        try:
+            resp = requests.post(
+                f"{self._base_url}/hf_token",
+                json={"token": token},
+                timeout=10,
+            )
+            return resp.status_code == 200
+        except requests.RequestException as exc:
+            logger.warning("Failed to push HF token to backend: %s", exc)
+            return False
 
     def list_models(self, model_type: str = "phoneme") -> List[dict]:
         """Return the list of available models from the backend.

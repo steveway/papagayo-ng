@@ -137,6 +137,16 @@ class WaveformView(QtWidgets.QGraphicsView):
         self.node = None
         self.did_resize = None
         self.threadpool = QtCore.QThreadPool.globalInstance()
+        # Generation counter for async waveform recalc workers. Each
+        # set_document/start_recalc increments this; stale workers that finish
+        # after a newer recalc was started are silently ignored.
+        self._recalc_gen = 0
+        # Track the sound object from the last full waveform rebuild so we
+        # can skip the expensive recalc when only the voice changes.
+        self._last_sound = None
+        # Reference to the active async recalc worker, kept alive until its
+        # queued signals are delivered (see start_recalc).
+        self._active_recalc_worker = None
 
         # Caching for drawBackground ------------------------------------ #
         self._bg_cache_key = None  # (frame_width, samples_per_frame, num_samples, height)
@@ -603,15 +613,39 @@ class WaveformView(QtWidgets.QGraphicsView):
         else:
             # Asynchronous: for initial document load, keeps UI responsive.
             # recalc_finished -> start_create_waveform fires when done.
+            # Use a generation token so that if a newer set_document starts
+            # another recalc before this one finishes, the stale worker's
+            # result/finished signals are ignored.
+            self._recalc_gen += 1
+            gen = self._recalc_gen
             worker = _WaveformRecalcWorker(self.doc.sound, self.samples_per_sec, duration)
+            # Prevent QThreadPool from auto-deleting the runnable when run()
+            # finishes.  Auto-deletion destroys the WorkerSignals QObject
+            # before its queued (cross-thread) signal emissions are delivered
+            # to the main thread, so the waveform never gets built.  We keep
+            # a reference on self and drop it once finished is processed.
+            worker.setAutoDelete(False)
             worker.signals.progress.connect(self.main_window.lip_sync_frame.status_bar_progress)
-            worker.signals.result.connect(self._on_recalc_result)
-            worker.signals.finished.connect(self.recalc_finished)
+            self._recalc_result_slot = lambda result, g=gen: self._on_recalc_result(result, g)
+            self._recalc_finished_slot = lambda g=gen: self._on_recalc_finished(g)
+            worker.signals.result.connect(self._recalc_result_slot)
+            worker.signals.finished.connect(self._recalc_finished_slot)
             worker.signals.error.connect(self._on_worker_error)
+            # Keep the worker alive until the finished signal is processed.
+            self._active_recalc_worker = worker
             self.threadpool.start(worker)
 
-    def _on_recalc_result(self, result):
+    def _on_recalc_result(self, result, gen=None):
+        if gen is not None and gen != self._recalc_gen:
+            return  # stale worker — a newer recalc has been started
         self.amp, self.num_samples = result
+
+    def _on_recalc_finished(self, gen):
+        if gen != self._recalc_gen:
+            return  # stale worker — ignore its completion
+        self.recalc_finished()
+        # Drop the worker reference now that its signals have been delivered.
+        self._active_recalc_worker = None
 
     def _on_worker_error(self, error_info):
         import traceback
@@ -645,14 +679,33 @@ class WaveformView(QtWidgets.QGraphicsView):
     def set_document(self, document, force=False, clear_scene=False):
         if document == self.doc and not force:
             return
-        if (document != self.doc) or clear_scene:
-            self.scene().clear()
-            self.waveform_polygon = None
-            self.temp_play_marker = None
-            self._bg_cache_key = None  # force bg rebuild
+        # Determine whether the sound actually changed. If the document is
+        # the same (or has the same sound object) we only need to refresh
+        # movable buttons — the waveform polygon and background stay.
+        new_sound = document.sound if (document is not None) else None
+        sound_changed = (new_sound is not self._last_sound) or clear_scene
+        # Any time the document changes, force is set, or clear_scene is set,
+        # we need to clean up old button proxies at minimum.
+        needs_cleanup = (document != self.doc) or force or clear_scene
+        if needs_cleanup:
+            if sound_changed:
+                # Full rebuild: clear the entire scene (waveform + buttons).
+                self.scene().clear()
+                self.waveform_polygon = None
+                self.temp_play_marker = None
+                self._bg_cache_key = None  # force bg rebuild
+                self._last_sound = new_sound
+            else:
+                # Voice-only change: remove just the movable-button proxies,
+                # keep the waveform polygon and background cache intact.
+                self._remove_all_button_proxies()
+            # Buttons were destroyed; drop the dangling selection reference.
+            self.currently_selected_object = None
         self.doc = document
         if self.doc is None or self.doc.sound is None:
             return
+        # Hide every button in the document, then create/show only the ones
+        # belonging to the current voice.
         for l_object in self.doc.project_node.descendants:
             try:
                 if l_object.move_button:
@@ -660,10 +713,21 @@ class WaveformView(QtWidgets.QGraphicsView):
             except RuntimeError:
                 pass
         self.create_movbuttons(self.main_window.lip_sync_frame.status_bar_progress)
-        self.start_recalc(wait_for_done=False)  # async: keeps UI responsive on load
+        # Only recalc the waveform when the sound actually changed — switching
+        # voices (or adding/removing voices) reuses the existing waveform.
+        if sound_changed:
+            self.start_recalc(wait_for_done=False)  # async: keeps UI responsive
         self._ensure_play_marker(visible=False)
         self.setViewportUpdateMode(QtWidgets.QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
         self.scene().update()
+
+    def _remove_all_button_proxies(self):
+        """Remove QGraphicsProxyWidget items (movable buttons) from the scene
+        without touching the waveform polygon or background."""
+        scene = self.scene()
+        for item in list(scene.items()):
+            if isinstance(item, QtWidgets.QGraphicsProxyWidget):
+                scene.removeItem(item)
 
     # ------------------------------------------------------------------ #
     # Scroll / zoom

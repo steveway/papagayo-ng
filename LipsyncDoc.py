@@ -461,8 +461,13 @@ class LipsyncDoc:
 
                 # Find peaks for word boundaries
                 if distribution_mode == "peaks":
-                    peaks = find_peaks(self.sound.soundfile, distance=2048)
-                    peak_divisor = len(self.sound.soundfile) / (self.soundDuration)
+                    # find_peaks requires a 1-D array; downmix stereo/multichannel
+                    # audio to mono before peak detection.
+                    sound_data = self.sound.soundfile
+                    if sound_data.ndim > 1:
+                        sound_data = sound_data.mean(axis=1)
+                    peaks = find_peaks(sound_data, distance=2048)
+                    peak_divisor = len(sound_data) / (self.soundDuration)
                     fitted_peaks = peaks[0] / peak_divisor
                     fitted_peaks = fitted_peaks.round().astype(int)
                     fitted_peaks = list(fitted_peaks)

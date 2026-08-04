@@ -256,6 +256,7 @@ class SettingsWindow:
                 self.main_window.available_onnx_models.setCurrentIndex(i)
                 break
         self.main_window.qss_path.setText(self.settings_manager.get_qss_file_path())
+        self.main_window.hf_token.setText(self.settings_manager.get_hf_token())
 
     def init_ui(self):
         self.translator = utilities.ApplicationTranslator()
@@ -305,6 +306,15 @@ class SettingsWindow:
         onnx_model_text = self.main_window.available_onnx_models.currentText()
         onnx_model_id = onnx_model_text.replace("[v] ", "").replace("[ ] ", "")
         self.settings_manager.set_onnx_model(onnx_model_id)
+        self.settings_manager.set_hf_token(self.main_window.hf_token.text())
+
+        # Push the (possibly updated) token to a running backend so it takes
+        # effect immediately without restarting the subprocess.
+        try:
+            from backend_recognizer import BackendRecognizer
+            BackendRecognizer().set_hf_token(self.main_window.hf_token.text())
+        except Exception as e:
+            print(f"Could not push HF token to backend: {e}")
         
         for color_button in self.main_window.graphical.findChildren(QtWidgets.QPushButton):
             if "Color" in color_button.text():

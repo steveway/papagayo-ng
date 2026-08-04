@@ -252,6 +252,11 @@ class LipsyncFrame:
         self.main_window.export_combo.setCurrentIndex(select)
         self.app.aboutToQuit.connect(self.on_close)
         self.ignore_text_changes = False
+        # Re-entrancy guard: while we are programmatically adding/removing a
+        # voice we manipulate the tab bar ourselves; the tab bar's
+        # currentChanged signal must not trigger on_sel_voice_tab (which would
+        # rebuild the waveform scene mid-operation and crash).
+        self._updating_voices = False
         # This adds our statuses to the statusbar
         self.mainframe_statusbar_fields = [app_title, self.translator.translate("LipsyncFrame", "Stopped")]
         self.play_status = QtWidgets.QLabel()
@@ -829,7 +834,13 @@ class LipsyncFrame:
             self.main_window.choose_imageset_button.setEnabled(False)
 
     def on_voice_name(self, event=None):
-
+        # Skip when the text field is being populated programmatically (e.g.
+        # while adding/removing/selecting a voice). Otherwise the rename
+        # logic below would run on a half-updated state and corrupt the
+        # tab<->voice mapping (e.g. renaming the tab of a voice that is about
+        # to be deleted).
+        if self.ignore_text_changes:
+            return
         if (self.doc is not None) and (self.doc.current_voice is not None):
             self.doc.dirty = True
             self.doc.current_voice.name = self.main_window.voice_name_input.text()
@@ -946,12 +957,26 @@ class LipsyncFrame:
     def on_sel_voice_tab(self, e):
         if not self.doc:
             return
+        # Don't react to tab changes that we trigger ourselves from
+        # on_new_voice / on_del_voice -- those methods do their own scene
+        # rebuild once the document state is consistent.
+        if self._updating_voices:
+            return
         prev_dirty = self.doc.dirty
         self.ignore_text_changes = True
+        tab_text = self.main_window.current_voice.tabBar().tabText(
+            self.main_window.current_voice.tabBar().currentIndex())
+        matched_voice = None
         for voice in self.doc.project_node.children:
-            if voice.name == self.main_window.current_voice.tabBar().tabText(
-                    self.main_window.current_voice.tabBar().currentIndex()):
-                self.doc.current_voice = voice
+            if voice.name == tab_text:
+                matched_voice = voice
+                break
+        if matched_voice is None:
+            # Tab text doesn't match any voice (transient state during rapid
+            # add/delete). Don't touch current_voice or rebuild the scene.
+            self.ignore_text_changes = False
+            return
+        self.doc.current_voice = matched_voice
 
         self.main_window.list_of_tags.clear()
         self.main_window.tag_list_group.setEnabled(False)
@@ -981,16 +1006,24 @@ class LipsyncFrame:
 
         self.doc.current_voice = LipsyncDoc.LipSyncObject(object_type=OBJECT_TYPE_VOICE, name=new_voice_name,
                                                           parent=self.doc.project_node)
-        self.main_window.current_voice.tabBar().addTab(self.doc.current_voice.name)
-        self.main_window.current_voice.tabBar().setCurrentIndex(self.main_window.current_voice.tabBar().count() - 1)
+        # Suppress re-entrant tab/signal handling while we rebuild the UI.
+        self._updating_voices = True
         self.ignore_text_changes = True
-        self.main_window.voice_name_input.setText(self.doc.current_voice.name)
-        self.main_window.text_edit.setText(self.doc.current_voice.text)
-        self.ignore_text_changes = False
-        list_of_voices = [voice.name for voice in self.doc.project_node.children]
-        self.main_window.voice_for_selection.clear()
-        self.main_window.voice_for_selection.addItems(list_of_voices)
-        self.main_window.voice_for_selection.setCurrentIndex(self.main_window.current_voice.tabBar().count() - 1)
+        try:
+            self.main_window.current_voice.tabBar().addTab(self.doc.current_voice.name)
+            self.main_window.current_voice.tabBar().setCurrentIndex(self.main_window.current_voice.tabBar().count() - 1)
+            self.main_window.voice_name_input.setText(self.doc.current_voice.name)
+            self.main_window.text_edit.setText(self.doc.current_voice.text)
+            list_of_voices = [voice.name for voice in self.doc.project_node.children]
+            self.main_window.voice_for_selection.clear()
+            self.main_window.voice_for_selection.addItems(list_of_voices)
+            self.main_window.voice_for_selection.setCurrentIndex(self.main_window.current_voice.tabBar().count() - 1)
+        finally:
+            self.ignore_text_changes = False
+            self._updating_voices = False
+        # Same document/sound — only movable buttons need refreshing, the
+        # waveform polygon stays.  set_document detects the unchanged sound
+        # and skips the expensive scene clear + waveform recalc.
         self.main_window.waveform_view.set_document(self.doc, True)
         self.main_window.mouth_view.draw_me()
 
@@ -1010,22 +1043,40 @@ class LipsyncFrame:
         if (not self.doc) or (len(self.doc.project_node.children) == 1):
             return
         self.doc.dirty = True
-        new_index = self.doc.project_node.children.index(self.doc.current_voice)
+        voice_to_delete = self.doc.current_voice
+        new_index = self.doc.project_node.children.index(voice_to_delete)
         if new_index > 0:
             new_index -= 1
         else:
             new_index = 0
-        self.doc.current_voice.parent = None
-        del self.doc.current_voice
+        # Detach and delete the voice node.  Its MovableButton proxies are
+        # cleaned up by set_document's _remove_all_button_proxies below —
+        # no need to manually scan the scene here.
+        voice_to_delete.parent = None
+        del voice_to_delete
         self.doc.current_voice = self.doc.project_node.children[new_index]
-        self.main_window.voice_name_input.setText(self.doc.current_voice.name)
-        self.main_window.text_edit.setText(self.doc.current_voice.text)
-        self.main_window.current_voice.tabBar().removeTab(self.main_window.current_voice.tabBar().currentIndex())
-        list_of_voices = [voice.name for voice in self.doc.project_node.children]
-        self.main_window.voice_for_selection.clear()
-        self.main_window.voice_for_selection.addItems(list_of_voices)
-        self.main_window.voice_for_selection.setCurrentIndex(new_index)
-        self.main_window.waveform_view.set_document(self.doc, True, True)
+        # Suppress re-entrant tab/signal handling while we rebuild the UI.
+        self._updating_voices = True
+        self.ignore_text_changes = True
+        try:
+            self.main_window.current_voice.tabBar().removeTab(self.main_window.current_voice.tabBar().currentIndex())
+            # Explicitly sync the tab bar's current index to the new voice.
+            # Without this, Qt auto-selects a tab after removal and the tab
+            # bar gets out of sync with self.doc.current_voice / the combo.
+            self.main_window.current_voice.tabBar().setCurrentIndex(new_index)
+            self.main_window.voice_name_input.setText(self.doc.current_voice.name)
+            self.main_window.text_edit.setText(self.doc.current_voice.text)
+            list_of_voices = [voice.name for voice in self.doc.project_node.children]
+            self.main_window.voice_for_selection.clear()
+            self.main_window.voice_for_selection.addItems(list_of_voices)
+            self.main_window.voice_for_selection.setCurrentIndex(new_index)
+        finally:
+            self.ignore_text_changes = False
+            self._updating_voices = False
+        # Same document/sound — only movable buttons need refreshing, the
+        # waveform polygon stays.  set_document detects the unchanged sound
+        # and skips the expensive scene clear + waveform recalc.
+        self.main_window.waveform_view.set_document(self.doc, True)
         self.main_window.mouth_view.draw_me()
 
     def on_voice_image_choose(self, event=None):
